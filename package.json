@@ -1,0 +1,28 @@
+{
+  "name": "project-time-tracker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "lucide-react": "^0.544.0",
+    "html5-qrcode": "^2.3.8",
+    "cors": "^2.8.5",
+    "sqlite": "^5.1.1",
+    "express": "^5.1.0",
+    "sqlite3": "^5.1.7",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
