@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-import { User as UserIcon, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons'; // Renamed User icon to avoid conflict with type
+import { User as UserIcon, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
 import QRCodeScanner from './QRCodeScanner';
 
 const Login: React.FC = () => {
@@ -33,13 +33,13 @@ const Login: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
                 <div className="flex justify-center mb-4">
                     <div className="inline-flex bg-gray-100 rounded-lg p-1">
-                        {['qr', 'manual'].map((method) => (
+                        {[{id: 'qr', name: 'QR Kód'}, {id: 'manual', name: 'Manuálne'}].map((method) => (
                             <button
-                                key={method}
-                                onClick={() => setLoginMethod(method as 'qr' | 'manual')}
-                                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${loginMethod === method ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}
+                                key={method.id}
+                                onClick={() => setLoginMethod(method.id as 'qr' | 'manual')}
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${loginMethod === method.id ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}
                             >
-                                {method === 'qr' ? 'QR Code' : 'Manual Login'}
+                                {method.name}
                             </button>
                         ))}
                     </div>
@@ -49,25 +49,25 @@ const Login: React.FC = () => {
                     <div className="text-center max-w-sm mx-auto">
                         <div className="bg-gray-100 rounded-xl p-6">
                             <QrCode className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-600 mb-4">Scan your user QR code to begin.</p>
+                            <p className="text-gray-600 mb-4">Naskenujte svoj používateľský QR kód.</p>
                             <button onClick={() => setIsScanning(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 flex items-center justify-center mx-auto">
                                 <QrCode className="w-5 h-5 mr-2" />
-                                Scan User QR
+                                Naskenovať QR Používateľa
                             </button>
                         </div>
                     </div>
                 ) : (
                     <form onSubmit={onLoginSubmit} className="space-y-4 max-w-sm mx-auto">
                         <div>
-                            <input type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required />
+                            <input type="text" placeholder="Používateľské meno" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required />
                         </div>
                         <div className="relative">
-                            <input type={showPassword ? 'text' : 'password'} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 pr-12" required />
+                            <input type={showPassword ? 'text' : 'password'} placeholder="Heslo" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 pr-12" required />
                             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                             </button>
                         </div>
-                        <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200">Login</button>
+                        <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200">Prihlásiť</button>
                     </form>
                 )}
             </div>
@@ -83,7 +83,7 @@ const StartTracking: React.FC = () => {
     const handleScanSuccess = (decodedText: string) => {
         setIsScanning(false);
         if (!decodedText.startsWith('PROJECT_ID:')) {
-            alert('Invalid QR code. Please scan a valid project QR code.');
+            alert('Neplatný QR kód. Prosím, naskenujte platný QR kód projektu.');
             return;
         }
         const result = processQRCode(decodedText);
@@ -96,13 +96,13 @@ const StartTracking: React.FC = () => {
         <>
             {isScanning && <QRCodeScanner onScanSuccess={handleScanSuccess} onClose={() => setIsScanning(false)} />}
             <div className="bg-white rounded-2xl shadow-xl p-6 mb-6 text-center">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Start New Session</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Začať novú reláciu</h2>
                 <div className="bg-gray-100 rounded-xl p-6">
                     <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-4">Scan the project QR code to start tracking time.</p>
+                    <p className="text-gray-600 mb-4">Naskenujte QR kód projektu pre začatie sledovania času.</p>
                     <button onClick={() => setIsScanning(true)} className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 flex items-center justify-center mx-auto">
                         <BarChart3 className="w-5 h-5 mr-2" />
-                        Scan Project QR
+                        Naskenovať QR Projektu
                     </button>
                 </div>
             </div>
@@ -124,8 +124,8 @@ const ActiveSessions: React.FC = () => {
     return (
         <div className="bg-white rounded-2xl shadow-xl p-6">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Active Sessions</h2>
-                <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">{activeSessions.length} active</div>
+                <h2 className="text-lg font-semibold text-gray-800">Aktívne relácie</h2>
+                <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">{activeSessions.length} aktívnych</div>
             </div>
 
             {activeSessions.length > 0 ? (
@@ -142,11 +142,11 @@ const ActiveSessions: React.FC = () => {
                                             <p className="font-medium text-gray-800">{session.userName}</p>
                                         </div>
                                         <p className="text-sm text-gray-700 font-medium">{session.projectName}</p>
-                                         {project?.closed && <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full mt-1 inline-block">Project Closed</span>}
+                                         {project?.closed && <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full mt-1 inline-block">Projekt Uzavretý</span>}
                                     </div>
                                     <div className="text-right ml-4">
                                         <p className="font-mono text-xl font-bold text-blue-600">{sessionTimers[session.id] ? formatTime(sessionTimers[session.id]) : '00:00:00'}</p>
-                                        {isCurrentUserSession && <div className="mt-2 text-blue-800 text-xs font-medium py-1 px-2 rounded-full bg-blue-100">Your Session</div>}
+                                        {isCurrentUserSession && <div className="mt-2 text-blue-800 text-xs font-medium py-1 px-2 rounded-full bg-blue-100">Vaša relácia</div>}
                                     </div>
                                 </div>
                             </div>
@@ -156,7 +156,7 @@ const ActiveSessions: React.FC = () => {
             ) : (
                 <div className="text-center py-8">
                     <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600">No active time tracking sessions.</p>
+                    <p className="text-gray-600">Žiadne aktívne relácie sledovania času.</p>
                 </div>
             )}
         </div>
@@ -205,16 +205,16 @@ const MainTrackingView: React.FC = () => {
                             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <StopCircle className="w-8 h-8 text-red-600" />
                             </div>
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">Stop Session for {userForStopConfirmation.name}?</h3>
-                            <p className="text-gray-600">You are about to stop the active session for <strong>{sessionToStop.projectName}</strong>.</p>
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">Zastaviť reláciu pre {userForStopConfirmation.name}?</h3>
+                            <p className="text-gray-600">Chystáte sa zastaviť aktívnu reláciu pre <strong>{sessionToStop.projectName}</strong>.</p>
                             <p className="text-lg text-gray-800 mt-2 font-mono">
                                 {sessionTimers[sessionToStop.id] ? formatTime(sessionTimers[sessionToStop.id]) : '00:00:00'}
                             </p>
                         </div>
                         <div className="flex space-x-3">
-                            <button onClick={handleCancelStop} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-4 rounded-xl">Cancel</button>
+                            <button onClick={handleCancelStop} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-4 rounded-xl">Zrušiť</button>
                             <button onClick={handleStopSession} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-xl flex items-center justify-center">
-                                <StopCircle className="w-5 h-5 mr-2" /> Stop Session
+                                <StopCircle className="w-5 h-5 mr-2" /> Zastaviť Reláciu
                             </button>
                         </div>
                     </div>
