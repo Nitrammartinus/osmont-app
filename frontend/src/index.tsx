@@ -5,7 +5,7 @@ import './index.css';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
-  throw new Error("Nebol nájdený koreňový prvok na pripojenie");
+  throw new Error("Nepodarilo sa nájsť koreňový element na pripojenie");
 }
 
 const root = ReactDOM.createRoot(rootElement);

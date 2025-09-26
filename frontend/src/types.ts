@@ -26,25 +26,16 @@ export interface ActiveSession {
   projectId: string;
   projectName: string;
   startTime: number;
-  project: Project;
 }
 
 export interface CompletedSession {
-  id?: number; // From database
+  id?: number; // from DB
   timestamp: string;
   employee_id: string;
   employee_name: string;
   project_id: string;
   project_name: string;
   duration_minutes: number;
-  duration_formatted: string;
-}
-
-export interface QRCodeData {
-  type: 'user' | 'project';
-  id: string;
-  name: string;
-  content: string;
 }
 
 export interface UserBreakdown {

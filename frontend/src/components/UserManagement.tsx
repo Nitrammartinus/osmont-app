@@ -6,7 +6,7 @@ import { UserPlus, Edit, Trash2, Ban, Check, QrCode, ChevronLeft, Download } fro
 const UserManagement: React.FC = () => {
     const { users, addUser, updateUser, deleteUser } = useTimeTracker();
     const [editingUser, setEditingUser] = useState<User | null>(null);
-    const [newUser, setNewUser] = useState<Partial<User>>({ name: '', username: '', password: '', role: 'employee' });
+    const [newUser, setNewUser] = useState<Partial<User>>({ name: '', username: '', password: '', role: 'employee', blocked: false });
     const [showQRCode, setShowQRCode] = useState<{ user: User, content: string } | null>(null);
 
     const handleAddUser = async () => {
@@ -14,26 +14,34 @@ const UserManagement: React.FC = () => {
             alert('Prosím, vyplňte všetky polia pre nového používateľa.');
             return;
         }
-        const success = await addUser(newUser);
-        if (success) {
-            setNewUser({ name: '', username: '', password: '', role: 'employee' });
+        if (users.some(u => u.username === newUser.username)) {
+            alert('Používateľské meno už existuje.');
+            return;
         }
+        await addUser({ ...newUser, id: `user${Date.now()}` });
+        setNewUser({ name: '', username: '', password: '', role: 'employee', blocked: false });
+        alert('Používateľ úspešne pridaný!');
     };
 
     const handleUpdateUser = async () => {
         if (!editingUser) return;
+        if (users.some(u => u.username === editingUser.username && u.id !== editingUser.id)) {
+            alert('Používateľské meno už existuje.');
+            return;
+        }
         await updateUser(editingUser);
         setEditingUser(null);
+        alert('Používateľ úspešne aktualizovaný!');
     };
 
-    const handleDeleteUser = async (userId: string) => {
-        if (window.confirm('Naozaj chcete odstrániť tohto používateľa?')) {
-            await deleteUser(userId);
+    const handleDeleteUser = (userId: string) => {
+        if (window.confirm('Naozaj chcete vymazať tohto používateľa?')) {
+            deleteUser(userId);
         }
     };
     
-    const toggleUserBlock = async (user: User) => {
-        await updateUser({ ...user, blocked: !user.blocked });
+    const toggleUserBlock = (user: User) => {
+        updateUser({ ...user, blocked: !user.blocked });
     };
 
     const generateQRCode = (user: User) => {
@@ -74,7 +82,7 @@ const UserManagement: React.FC = () => {
                  <div className="bg-white rounded-2xl shadow-xl p-6">
                      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Edit className="w-5 h-5 mr-2 text-blue-600" />Upraviť Používateľa: {editingUser.name}</h3>
                      <div className="space-y-4">
-                         <input type="text" placeholder="Celé meno" value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})} className="w-full p-2 border rounded" />
+                         <input type="text" placeholder="Celé Meno" value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})} className="w-full p-2 border rounded" />
                          <input type="text" placeholder="Používateľské meno" value={editingUser.username} onChange={e => setEditingUser({...editingUser, username: e.target.value})} className="w-full p-2 border rounded" />
                          <input type="password" placeholder="Nové heslo (voliteľné)" onChange={e => setEditingUser({...editingUser, password: e.target.value})} className="w-full p-2 border rounded" />
                          <select value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value as UserRole})} className="w-full p-2 border rounded">
@@ -97,7 +105,7 @@ const UserManagement: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-xl p-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><UserPlus className="w-5 h-5 mr-2 text-blue-600" />Pridať nového používateľa</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" placeholder="Celé meno" value={newUser.name || ''} onChange={e => setNewUser({...newUser, name: e.target.value})} className="w-full p-2 border rounded" />
+                    <input type="text" placeholder="Celé Meno" value={newUser.name || ''} onChange={e => setNewUser({...newUser, name: e.target.value})} className="w-full p-2 border rounded" />
                     <input type="text" placeholder="Používateľské meno" value={newUser.username || ''} onChange={e => setNewUser({...newUser, username: e.target.value})} className="w-full p-2 border rounded" />
                     <input type="password" placeholder="Heslo" value={newUser.password || ''} onChange={e => setNewUser({...newUser, password: e.target.value})} className="w-full p-2 border rounded" />
                     <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as UserRole})} className="w-full p-2 border rounded">
@@ -121,7 +129,7 @@ const UserManagement: React.FC = () => {
                                 <button onClick={() => generateQRCode(user)} title="QR Kód" className="p-2 text-gray-500 hover:bg-blue-100 hover:text-blue-600 rounded-full"><QrCode className="w-4 h-4" /></button>
                                 <button onClick={() => setEditingUser(user)} title="Upraviť" className="p-2 text-gray-500 hover:bg-yellow-100 hover:text-yellow-600 rounded-full"><Edit className="w-4 h-4" /></button>
                                 <button onClick={() => toggleUserBlock(user)} title={user.blocked ? "Odblokovať" : "Zablokovať"} className={`p-2 rounded-full ${user.blocked ? 'hover:bg-green-100 text-green-600' : 'hover:bg-red-100 text-red-600'}`}>{user.blocked ? <Check className="w-4 h-4"/> : <Ban className="w-4 h-4" />}</button>
-                                <button onClick={() => handleDeleteUser(user.id)} title="Odstrániť" className="p-2 text-gray-500 hover:bg-red-100 hover:text-red-600 rounded-full"><Trash2 className="w-4 h-4" /></button>
+                                <button onClick={() => handleDeleteUser(user.id)} title="Vymazať" className="p-2 text-gray-500 hover:bg-red-100 hover:text-red-600 rounded-full"><Trash2 className="w-4 h-4" /></button>
                             </div>
                         </div>
                     ))}

@@ -8,7 +8,11 @@ import EvaluationDashboard from './components/EvaluationDashboard';
 import { Shield } from './components/Icons';
 
 const AppContent: React.FC = () => {
-    const { currentView, canAccessEvaluation, isAdmin, isManager } = useTimeTracker();
+    const { currentView, isAdmin, isManager, canAccessEvaluation, isLoading } = useTimeTracker();
+
+    if (isLoading) {
+        return <div className="flex items-center justify-center h-screen">Načítava sa...</div>;
+    }
 
     const renderView = () => {
         switch (currentView) {

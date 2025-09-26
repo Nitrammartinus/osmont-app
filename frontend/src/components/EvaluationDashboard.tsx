@@ -16,10 +16,10 @@ const TimeVariance: React.FC<{ variance: number | null }> = ({ variance }) => {
     }
     const hours = Math.abs(variance).toFixed(1);
     if (variance > 0) {
-        return <span className="font-semibold text-red-600">{hours}h nad</span>;
+        return <span className="font-semibold text-red-600">{hours}h nad limit</span>;
     }
     if (variance < 0) {
-        return <span className="font-semibold text-green-600">{hours}h pod</span>;
+        return <span className="font-semibold text-green-600">{hours}h pod limit</span>;
     }
     return <span className="font-semibold text-gray-700">Na čas</span>;
 }
@@ -30,7 +30,7 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
         const csvContent = [
             headers.join(','),
             ...projectData.allSessions.map(session =>
-                `"${new Date(session.timestamp).toLocaleDateString()}","${new Date(session.timestamp).toLocaleTimeString()}","${session.employee_name}","${session.duration_formatted}"`
+                `"${new Date(session.timestamp).toLocaleDateString()}","${new Date(session.timestamp).toLocaleTimeString()}","${session.employee_name}","${formatDuration(session.duration_minutes)}"`
             )
         ].join('\n');
         
@@ -55,9 +55,9 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
                     <InfoCard icon={<Clock />} label="Čas v období" value={formatDuration(projectData.totalTime)} />
                     <InfoCard icon={<Users />} label="Členovia tímu" value={projectData.uniqueUsers.toString()} />
                     <InfoCard icon={<Calendar />} label="Relácie v období" value={projectData.sessions.toString()} />
-                    <InfoCard icon={<DollarSign />} label="Cena / hodina (celkovo)" value={`$${projectData.costPerHour.toFixed(2)}`} />
+                    <InfoCard icon={<DollarSign />} label="Cena / hodina (celkovo)" value={`${projectData.costPerHour.toFixed(2)} €`} />
                     <InfoCard icon={<TrendingUp />} label="Priebeh (celkovo)" value={`${projectData.progressTowardsDeadline.toFixed(0)}%`} />
-                    <InfoCard icon={<ArrowLeftRight />} label="Časová odchýlka (celkovo)" value={<TimeVariance variance={projectData.timeVariance} />} />
+                    <InfoCard icon={<ArrowLeftRight />} label="Odchýlka času (celkovo)" value={<TimeVariance variance={projectData.timeVariance} />} />
                 </div>
                  <div className="w-full bg-gray-200 rounded-full h-2.5 mt-4">
                     <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${projectData.progressTowardsDeadline}%` }}></div>
@@ -65,9 +65,9 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
             </div>
 
             <div className="bg-white rounded-2xl shadow-xl p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Rozpis času podľa používateľov (v období)</h3>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Rozdelenie času podľa používateľov (v období)</h3>
                 <div className="space-y-3">
-                    {Object.values(projectData.userBreakdown).map((userData: UserBreakdown) => (
+                    {Object.values(projectData.userBreakdown).length > 0 ? Object.values(projectData.userBreakdown).map((userData: UserBreakdown) => (
                         <div key={userData.name} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
                             <p className="font-medium text-gray-800">{userData.name}</p>
                             <div className="text-right">
@@ -75,7 +75,7 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
                                 <p className="text-sm text-gray-500">{userData.sessions} relácií</p>
                             </div>
                         </div>
-                    ))}
+                    )) : <p className="text-gray-500">Žiadne dáta.</p>}
                 </div>
             </div>
 
@@ -87,12 +87,12 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
                     </button>
                  </div>
                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {projectData.allSessions.map((session, index) => (
-                        <div key={session.id || index} className="bg-gray-50 p-2 rounded-lg text-sm flex justify-between">
+                    {projectData.allSessions.length > 0 ? projectData.allSessions.map((session, index) => (
+                        <div key={index} className="bg-gray-50 p-2 rounded-lg text-sm flex justify-between">
                             <span>{session.employee_name} dňa {new Date(session.timestamp).toLocaleDateString()}</span>
-                            <span className="font-semibold">{session.duration_formatted}</span>
+                            <span className="font-semibold">{formatDuration(session.duration_minutes)}</span>
                         </div>
-                    ))}
+                    )) : <p className="text-gray-500">Žiadne relácie v tomto období.</p>}
                  </div>
             </div>
         </div>
@@ -110,12 +110,10 @@ const InfoCard: React.FC<{ icon: React.ReactElement<{ className?: string }>; lab
 );
 
 const EvaluationDashboard: React.FC = () => {
-    const { getProjectEvaluation, exportToExcel, completedSessions } = useTimeTracker();
+    const { projectEvaluation, exportToExcel, completedSessions } = useTimeTracker();
     const [selectedProject, setSelectedProject] = useState<ProjectEvaluationData | null>(null);
     const [startDate, setStartDate] = useState<string>('');
     const [endDate, setEndDate] = useState<string>('');
-
-    const projectEvaluation = useMemo(() => getProjectEvaluation(), [getProjectEvaluation, completedSessions]);
 
     const filteredEvaluationData = useMemo(() => {
         const evaluationSource = Object.values(projectEvaluation);
@@ -124,7 +122,7 @@ const EvaluationDashboard: React.FC = () => {
         }
 
         const start = startDate ? new Date(startDate).getTime() : 0;
-        const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : Date.now();
+        const end = endDate ? new Date(endDate).getTime() + (24 * 60 * 60 * 1000 - 1) : Date.now();
 
         const filteredData: ProjectEvaluationData[] = [];
 
@@ -148,7 +146,7 @@ const EvaluationDashboard: React.FC = () => {
                 });
 
                 filteredData.push({
-                    ...project,
+                    ...project, // Keep original lifetime metrics
                     totalTime: totalTime,
                     uniqueUsers: uniqueUsers,
                     sessions: filteredSessions.length,
@@ -162,18 +160,9 @@ const EvaluationDashboard: React.FC = () => {
     }, [projectEvaluation, startDate, endDate]);
 
     const totalTrackedTime = useMemo(() => {
-        if (!startDate && !endDate) {
-            return completedSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
-        }
-        const start = startDate ? new Date(startDate).getTime() : 0;
-        const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : Date.now();
-        
-        return completedSessions.filter(session => {
-            const sessionDate = new Date(session.timestamp).getTime();
-            return sessionDate >= start && sessionDate <= end;
-        }).reduce((sum, s) => sum + s.duration_minutes, 0);
-    }, [completedSessions, startDate, endDate]);
-    
+        return filteredEvaluationData.reduce((sum, proj) => sum + proj.totalTime, 0);
+    }, [filteredEvaluationData]);
+
 
     if (selectedProject) {
         const updatedProjectData = filteredEvaluationData.find(p => p.id === selectedProject.id);
@@ -213,7 +202,7 @@ const EvaluationDashboard: React.FC = () => {
                             <div className="flex justify-between items-start mb-2">
                                 <div>
                                     <h3 className="text-lg font-bold text-gray-800">{project.name}</h3>
-                                    {project.closed && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full mt-1">Uzavretý</span>}
+                                    {project.closed && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full mt-1">Uzatvorený</span>}
                                 </div>
                                 <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
                                     {formatDuration(project.totalTime)}
@@ -222,13 +211,13 @@ const EvaluationDashboard: React.FC = () => {
                              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                                 <div className="flex items-center"><Users className="w-4 h-4 mr-2 text-gray-500" /> {project.uniqueUsers} Členov</div>
                                 <div className="flex items-center"><Calendar className="w-4 h-4 mr-2 text-gray-500" /> {project.sessions} Relácií</div>
-                                <div className="flex items-center col-span-2"><DollarSign className="w-4 h-4 mr-2 text-gray-500" /> Rozpočet: ${project.budget.toLocaleString()}</div>
+                                <div className="flex items-center col-span-2"><DollarSign className="w-4 h-4 mr-2 text-gray-500" /> Rozpočet: {project.budget.toLocaleString()} €</div>
                              </div>
                         </div>
 
                         <div className="mt-auto">
                             <div className="flex justify-between items-center text-xs text-gray-600 mb-1">
-                                <span>Priebeh (celkovo)</span>
+                                <span>Priebeh (Celkovo)</span>
                                 <span>{project.progressTowardsDeadline.toFixed(0)}%</span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-2">
@@ -244,8 +233,8 @@ const EvaluationDashboard: React.FC = () => {
             {filteredEvaluationData.length === 0 && (
                  <div className="text-center py-16 bg-white rounded-2xl shadow-xl">
                     <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-700">Žiadne dáta o projektoch</h3>
-                    <p className="text-gray-500 mt-2">Pre zvolené časové obdobie neexistuje žiadna aktivita sledovania času.</p>
+                    <h3 className="text-xl font-semibold text-gray-700">Žiadne Dáta Projektov</h3>
+                    <p className="text-gray-500 mt-2">Pre zvolené obdobie neexistuje žiadna aktivita.</p>
                 </div>
             )}
         </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { X } from './Icons';
 import { Html5Qrcode, Html5QrcodeScanType } from 'html5-qrcode';
 
@@ -8,10 +8,11 @@ interface QRCodeScannerProps {
 }
 
 const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScanSuccess, onClose }) => {
-    const scannerRef = useRef<Html5Qrcode | null>(null);
     const readerId = "qr-reader";
 
     useEffect(() => {
+        const html5QrCode = new Html5Qrcode(readerId);
+        
         const config = {
             fps: 10,
             qrbox: { width: 250, height: 250 },
@@ -19,49 +20,29 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScanSuccess, onClose })
             supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
         };
 
-        const html5QrCode = new Html5Qrcode(readerId);
-        scannerRef.current = html5QrCode;
-
-        const startScanner = async () => {
-            try {
-                await html5QrCode.start(
-                    { facingMode: "environment" },
-                    config,
-                    (decodedText: string, decodedResult: any) => {
-                        onScanSuccess(decodedText);
-                    },
-                    (errorMessage: string) => {
-                        // ignorovať
-                    }
-                );
-            } catch (err) {
-                console.error("Nepodarilo sa spustiť QR skener", err);
-                // Pokus o použitie prednej kamery ako zálohy
-                try {
-                     await html5QrCode.start(
-                        { facingMode: "user" },
-                        config,
-                        (decodedText: string, decodedResult: any) => {
-                            onScanSuccess(decodedText);
-                        },
-                        (errorMessage: string) => {
-                            // ignorovať
-                        }
-                    );
-                } catch (fallbackErr) {
-                    console.error("Nepodarilo sa spustiť QR skener so záložnou kamerou", fallbackErr);
-                    alert("Nepodarilo sa spustiť kameru. Prosím, udeľte povolenia pre kameru a obnovte stránku.");
-                    onClose();
+        const startScanner = () => {
+             html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                (decodedText: string) => {
+                    html5QrCode.stop();
+                    onScanSuccess(decodedText);
+                },
+                (errorMessage: string) => {
+                    // ignorovať chyby pri hľadaní kódu
                 }
-            }
+            ).catch((err) => {
+                console.error("Nepodarilo sa spustiť QR skener", err);
+                alert("Nepodarilo sa spustiť kameru. Prosím, povoľte prístup ku kamere a obnovte stránku.");
+                onClose();
+            });
         };
         
         startScanner();
 
         return () => {
-            if (scannerRef.current && scannerRef.current.isScanning) {
-                scannerRef.current.stop()
-                    .catch((err: any) => console.error("Nepodarilo sa zastaviť skener", err));
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().catch((err: any) => console.error("Nepodarilo sa zastaviť skener", err));
             }
         };
     }, [onScanSuccess, onClose]);
@@ -74,7 +55,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScanSuccess, onClose })
                 </button>
                 <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Naskenovať QR Kód</h3>
                 <div id={readerId} className="w-full rounded-lg overflow-hidden border-2 border-gray-300"></div>
-                <p className="text-sm text-gray-500 mt-4 text-center">Namierte kameru na QR kód.</p>
+                <p className="text-sm text-gray-500 mt-4 text-center">Zamierte kameru na QR kód.</p>
             </div>
         </div>
     );

@@ -1,4 +1,3 @@
-// This file acts as a central hub for all icons, making imports cleaner.
 export {
     Camera,
     Play,
