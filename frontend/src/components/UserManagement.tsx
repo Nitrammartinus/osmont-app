@@ -14,11 +14,6 @@ const UserManagement: React.FC = () => {
             alert('Prosím, vyplňte všetky polia pre nového používateľa.');
             return;
         }
-        if (users.some(u => u.username === newUser.username)) {
-            alert('Používateľské meno už existuje.');
-            return;
-        }
-        
         const success = await addUser(newUser);
         if (success) {
             setNewUser({ name: '', username: '', password: '', role: 'employee' });
@@ -27,10 +22,6 @@ const UserManagement: React.FC = () => {
 
     const handleUpdateUser = async () => {
         if (!editingUser) return;
-        if (users.some(u => u.username === editingUser.username && u.id !== editingUser.id)) {
-            alert('Používateľské meno už existuje.');
-            return;
-        }
         await updateUser(editingUser);
         setEditingUser(null);
     };
