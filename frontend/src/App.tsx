@@ -5,13 +5,18 @@ import MainTrackingView from './components/MainTrackingView';
 import UserManagement from './components/UserManagement';
 import ProjectManagement from './components/ProjectManagement';
 import EvaluationDashboard from './components/EvaluationDashboard';
-import { Shield } from './components/Icons';
+import { Shield, Clock } from './components/Icons';
 
 const AppContent: React.FC = () => {
     const { currentView, isAdmin, isManager, canAccessEvaluation, isLoading } = useTimeTracker();
 
     if (isLoading) {
-        return <div className="flex items-center justify-center h-screen">Načítava sa...</div>;
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-gray-50 text-gray-600">
+                <Clock className="w-12 h-12 animate-spin text-blue-500 mb-4" />
+                <p className="text-lg">Načítavajú sa dáta zo servera...</p>
+            </div>
+        );
     }
 
     const renderView = () => {

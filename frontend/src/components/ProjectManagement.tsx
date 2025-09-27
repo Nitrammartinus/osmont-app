@@ -89,7 +89,7 @@ const ProjectManagement: React.FC = () => {
                      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Edit className="w-5 h-5 mr-2 text-green-600" />Upraviť Projekt: {editingProject.name}</h3>
                      <div className="space-y-4">
                          <input type="text" placeholder="Názov Projektu" value={editingProject.name} onChange={e => setEditingProject({...editingProject, name: e.target.value})} className="w-full p-2 border rounded" />
-                         <input type="number" placeholder="Rozpočet" value={editingProject.budget} onChange={e => setEditingProject({...editingProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded" />
+                         <input type="number" placeholder="Rozpočet (€)" value={editingProject.budget} onChange={e => setEditingProject({...editingProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded" />
                          <input type="date" value={editingProject.deadline} onChange={e => setEditingProject({...editingProject, deadline: e.target.value})} className="w-full p-2 border rounded" />
                          <input type="number" placeholder="Odhadované Hodiny" value={editingProject.estimatedHours || ''} onChange={e => setEditingProject({...editingProject, estimatedHours: Number(e.target.value)})} className="w-full p-2 border rounded" />
                          <div className="flex space-x-2">
@@ -108,7 +108,7 @@ const ProjectManagement: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><FolderPlus className="w-5 h-5 mr-2 text-green-600" />Pridať nový projekt</h3>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input type="text" placeholder="Názov Projektu" value={newProject.name || ''} onChange={e => setNewProject({...newProject, name: e.target.value})} className="w-full p-2 border rounded" />
-                    <input type="number" placeholder="Rozpočet" value={newProject.budget || ''} onChange={e => setNewProject({...newProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded" />
+                    <input type="number" placeholder="Rozpočet (€)" value={newProject.budget || ''} onChange={e => setNewProject({...newProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded" />
                     <input type="date" value={newProject.deadline || ''} onChange={e => setNewProject({...newProject, deadline: e.target.value})} className="w-full p-2 border rounded" />
                     <input type="number" placeholder="Odhadované Hodiny" value={newProject.estimatedHours || ''} onChange={e => setNewProject({...newProject, estimatedHours: Number(e.target.value)})} className="w-full p-2 border rounded" />
                 </div>
@@ -121,7 +121,7 @@ const ProjectManagement: React.FC = () => {
                         <div key={project.id} className="bg-gray-50 p-3 rounded-lg flex items-center justify-between">
                              <div>
                                 <p className="font-medium">{project.name} <span className={`text-xs px-2 py-0.5 rounded-full ml-2 ${project.closed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{project.closed ? 'Uzatvorený' : 'Otvorený'}</span></p>
-                                <p className="text-sm text-gray-600">Rozpočet: {project.budget.toLocaleString()} € | Termín: {project.deadline}</p>
+                                <p className="text-sm text-gray-600">Rozpočet: {project.budget.toLocaleString()} € | Termín: {new Date(project.deadline).toLocaleDateString('sk-SK')}</p>
                             </div>
                             <div className="flex items-center space-x-2">
                                 <button onClick={() => generateQRCode(project)} title="QR Kód" className="p-2 text-gray-500 hover:bg-blue-100 hover:text-blue-600 rounded-full"><QrCode className="w-4 h-4" /></button>

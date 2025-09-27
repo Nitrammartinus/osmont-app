@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-import { User, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
+// FIX: Import User type separately and alias the User icon to avoid name collision.
+import { User as UserIcon, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
+import type { User } from '../types';
 import QRCodeScanner from './QRCodeScanner';
 
 const Login: React.FC = () => {
@@ -80,12 +82,8 @@ const StartTracking: React.FC = () => {
 
     const handleScanSuccess = (decodedText: string) => {
         setIsScanning(false);
-        if (!decodedText.startsWith('PROJECT_ID:')) {
-            alert('Neplatný QR kód. Prosím, naskenujte platný QR kód projektu.');
-            return;
-        }
         const result = processQRCode(decodedText);
-        if (!result.success) {
+        if (!result.success && result.message) {
             alert(result.message);
         }
     };
@@ -135,7 +133,7 @@ const ActiveSessions: React.FC = () => {
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <div className="flex items-center mb-1">
-                                            <User className="w-4 h-4 text-gray-600 mr-2" />
+                                            <UserIcon className="w-4 h-4 text-gray-600 mr-2" />
                                             <p className="font-medium text-gray-800">{session.userName}</p>
                                         </div>
                                         <p className="text-sm text-gray-700 font-medium">{session.projectName}</p>
@@ -160,24 +158,30 @@ const ActiveSessions: React.FC = () => {
 };
 
 const MainTrackingView: React.FC = () => {
-    const { currentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
-    const userHasActiveSession = activeSessions.some(s => s.userId === currentUser?.id);
+    const { currentUser, activeSessions, userForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
+    const [localUserForStop, setLocalUserForStop] = useState<User | null>(null);
+
+    // This effect synchronizes the confirmation modal with the global state
+    useEffect(() => {
+        if (userForStopConfirmation) {
+            setLocalUserForStop(userForStopConfirmation);
+        }
+    }, [userForStopConfirmation]);
 
     const sessionToStop = useMemo(() => {
-        if (!userForStopConfirmation) return null;
-        return activeSessions.find(s => s.userId === userForStopConfirmation.id);
-    }, [userForStopConfirmation, activeSessions]);
+        if (!localUserForStop) return null;
+        return activeSessions.find(s => s.userId === localUserForStop.id);
+    }, [localUserForStop, activeSessions]);
 
-    // FIX: Made function async and awaited stopSessionForUser to prevent race conditions.
     const handleStopSession = async () => {
-        if (userForStopConfirmation) {
-            await stopSessionForUser(userForStopConfirmation);
+        if (localUserForStop) {
+            await stopSessionForUser(localUserForStop);
         }
-        setUserForStopConfirmation(null);
+        setLocalUserForStop(null); // Close modal
     };
 
     const handleCancelStop = () => {
-        setUserForStopConfirmation(null);
+        setLocalUserForStop(null); // Close modal
     };
 
     const formatTime = (milliseconds: number) => {
@@ -188,21 +192,23 @@ const MainTrackingView: React.FC = () => {
         const seconds = totalSeconds % 60;
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     };
+    
+    const userHasActiveSession = activeSessions.some(s => s.userId === currentUser?.id);
 
     return (
         <div className="max-w-4xl mx-auto">
-            {!currentUser && !userForStopConfirmation && <Login />}
+            {!currentUser && !localUserForStop && <Login />}
             {currentUser && !userHasActiveSession && <StartTracking />}
             <ActiveSessions />
 
-            {sessionToStop && userForStopConfirmation && (
+            {sessionToStop && localUserForStop && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
                         <div className="text-center mb-4">
                             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <StopCircle className="w-8 h-8 text-red-600" />
                             </div>
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">Zastaviť reláciu pre {userForStopConfirmation.name}?</h3>
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">Zastaviť reláciu pre {localUserForStop.name}?</h3>
                             <p className="text-gray-600">Chystáte sa zastaviť aktívnu reláciu pre projekt <strong>{sessionToStop.projectName}</strong>.</p>
                             <p className="text-lg text-gray-800 mt-2 font-mono">
                                 {sessionTimers[sessionToStop.id] ? formatTime(sessionTimers[sessionToStop.id]) : '00:00:00'}

@@ -25,8 +25,11 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScanSuccess, onClose })
                 { facingMode: "environment" },
                 config,
                 (decodedText: string) => {
-                    html5QrCode.stop();
-                    onScanSuccess(decodedText);
+                    if (html5QrCode && html5QrCode.isScanning) {
+                        html5QrCode.stop().then(() => {
+                             onScanSuccess(decodedText);
+                        });
+                    }
                 },
                 (errorMessage: string) => {
                     // ignorovať chyby pri hľadaní kódu

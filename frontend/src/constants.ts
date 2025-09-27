@@ -1,2 +1,4 @@
 // Initial data is no longer stored on the frontend.
-// The backend database seeds itself upon first launch.
+// It is now seeded into the database by the backend on its first run.
+// This file is kept for potential future constants.
+export {};

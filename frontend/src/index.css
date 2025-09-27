@@ -1,3 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Hide the animated laser line in the QR code scanner */
+#qr-reader__scan_region_laser {
+    display: none !important;
+}
