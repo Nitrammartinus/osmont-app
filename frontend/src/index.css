@@ -6,3 +6,14 @@
 #qr-reader__scan_region_laser {
     display: none !important;
 }
+
+/* Add a persistent, visible frame to the scanning region */
+#qr-reader__scan_region {
+    border: 4px solid rgba(255, 255, 255, 0.7) !important;
+    border-radius: 8px;
+    box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.5);
+}
+
+#qr-reader video {
+    border-radius: 4px; /* Slightly round the corners of the video feed itself */
+}
