@@ -16,7 +16,6 @@ app.get('/api/users', async (req, res) => {
         const result = await pool.query('SELECT id, name, username, role, blocked FROM users ORDER BY name');
         res.json(result.rows);
     } catch (err) {
-        console.error('Error fetching users:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -37,7 +36,6 @@ app.post('/api/users', async (req, res) => {
         if (err.code === '23505') { // unique_violation
             return res.status(409).json({ error: 'Username already exists' });
         }
-        console.error('Error creating user:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -46,12 +44,14 @@ app.put('/api/users/:id', async (req, res) => {
     const { id } = req.params;
     const { name, username, password, role, blocked } = req.body;
     try {
+        // Fetch current user data first to handle partial updates
         const existingUserRes = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
         if (existingUserRes.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
         const existingUser = existingUserRes.rows[0];
 
+        // Merge new data
         const updatedUser = {
             name: name !== undefined ? name : existingUser.name,
             username: username !== undefined ? username : existingUser.username,
@@ -59,7 +59,7 @@ app.put('/api/users/:id', async (req, res) => {
             blocked: blocked !== undefined ? blocked : existingUser.blocked,
         };
 
-        if (password && password.length > 0) {
+        if (password) {
             const hashedPassword = await bcrypt.hash(password, 10);
             const result = await pool.query(
                 'UPDATE users SET name = $1, username = $2, password = $3, role = $4, blocked = $5 WHERE id = $6 RETURNING id, name, username, role, blocked',
@@ -77,7 +77,6 @@ app.put('/api/users/:id', async (req, res) => {
         if (err.code === '23505') {
             return res.status(409).json({ error: 'Username already exists' });
         }
-        console.error('Error updating user:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -87,7 +86,6 @@ app.delete('/api/users/:id', async (req, res) => {
         await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
         res.status(204).send();
     } catch (err) {
-        console.error('Error deleting user:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -97,20 +95,19 @@ app.post('/api/login', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
         if (result.rows.length === 0) {
-            return res.status(401).json({ error: 'Neplatné prihlasovacie údaje' });
+            return res.status(401).json({ error: 'Invalid credentials' });
         }
         const user = result.rows[0];
         if (user.blocked) {
-            return res.status(403).json({ error: 'Používateľ je zablokovaný' });
+            return res.status(403).json({ error: 'User is blocked' });
         }
         const passwordMatch = await bcrypt.compare(password, user.password);
         if (!passwordMatch) {
-            return res.status(401).json({ error: 'Neplatné prihlasovacie údaje' });
+            return res.status(401).json({ error: 'Invalid credentials' });
         }
         const { password: _, ...userWithoutPassword } = user;
         res.json(userWithoutPassword);
     } catch (err) {
-        console.error('Error logging in user:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -121,7 +118,6 @@ app.get('/api/projects', async (req, res) => {
         const result = await pool.query('SELECT * FROM projects ORDER BY name');
         res.json(result.rows);
     } catch (err) {
-        console.error('Error fetching projects:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -135,7 +131,6 @@ app.post('/api/projects', async (req, res) => {
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        console.error('Error creating project:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -150,7 +145,6 @@ app.put('/api/projects/:id', async (req, res) => {
         );
         res.json(result.rows[0]);
     } catch (err) {
-        console.error('Error updating project:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -160,7 +154,6 @@ app.delete('/api/projects/:id', async (req, res) => {
         await pool.query('DELETE FROM projects WHERE id = $1', [req.params.id]);
         res.status(204).send();
     } catch (err) {
-        console.error('Error deleting project:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -172,7 +165,6 @@ app.get('/api/sessions/completed', async (req, res) => {
         const result = await pool.query('SELECT * FROM completed_sessions ORDER BY timestamp DESC');
         res.json(result.rows);
     } catch (err) {
-        console.error('Error fetching completed sessions:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -214,17 +206,18 @@ app.post('/api/active-sessions', async (req, res) => {
          if (err.code === '23505') { // unique_violation on user_id
             return res.status(409).json({ error: 'User already has an active session.' });
         }
-        console.error('Error starting session:', err);
         res.status(500).json({ error: 'Database error starting session' });
     }
 });
 
+// Stop session: Deletes active session and creates a completed session
 app.delete('/api/active-sessions/user/:userId', async (req, res) => {
     const { userId } = req.params;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
+        // Find the active session for the user
         const activeSessionRes = await client.query('SELECT * FROM active_sessions WHERE user_id = $1', [userId]);
         if (activeSessionRes.rows.length === 0) {
             await client.query('ROLLBACK');
@@ -232,19 +225,23 @@ app.delete('/api/active-sessions/user/:userId', async (req, res) => {
         }
         const activeSession = activeSessionRes.rows[0];
 
+        // Get user and project names
         const userRes = await client.query('SELECT name FROM users WHERE id = $1', [activeSession.user_id]);
         const projectRes = await client.query('SELECT name FROM projects WHERE id = $1', [activeSession.project_id]);
         const userName = userRes.rows[0].name;
         const projectName = projectRes.rows[0].name;
 
+        // Calculate duration
         const startTime = new Date(activeSession.start_time);
         const durationMinutes = Math.round((Date.now() - startTime.getTime()) / 60000);
         
+        // Create completed session
         await client.query(
             'INSERT INTO completed_sessions (timestamp, employee_id, employee_name, project_id, project_name, duration_minutes) VALUES ($1, $2, $3, $4, $5, $6)',
             [startTime, activeSession.user_id, userName, activeSession.project_id, projectName, durationMinutes]
         );
         
+        // Delete active session
         await client.query('DELETE FROM active_sessions WHERE user_id = $1', [userId]);
 
         await client.query('COMMIT');
@@ -252,7 +249,6 @@ app.delete('/api/active-sessions/user/:userId', async (req, res) => {
 
     } catch(err) {
         await client.query('ROLLBACK');
-        console.error('Error stopping session:', err);
         res.status(500).json({ error: 'Database transaction failed' });
     } finally {
         client.release();

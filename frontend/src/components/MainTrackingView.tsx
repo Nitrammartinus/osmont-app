@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-import { User as UserType } from '../types';
+// FIX: Import User type separately and alias the User icon to avoid name collision.
 import { User as UserIcon, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
+import type { User } from '../types';
 import QRCodeScanner from './QRCodeScanner';
 
 const Login: React.FC = () => {
@@ -21,10 +22,10 @@ const Login: React.FC = () => {
         }
     };
 
-    const handleScanSuccess = async (decodedText: string) => {
+    const handleScanSuccess = (decodedText: string) => {
         setIsScanning(false);
-        const result = await processQRCode(decodedText);
-        if (!result.success) {
+        const result = processQRCode(decodedText);
+        if (!result.success && result.message) {
             alert(result.message);
         }
     };
@@ -35,15 +36,12 @@ const Login: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
                 <div className="flex justify-center mb-4">
                     <div className="inline-flex bg-gray-100 rounded-lg p-1">
-                        {['qr', 'manual'].map((method) => (
-                            <button
-                                key={method}
-                                onClick={() => setLoginMethod(method as 'qr' | 'manual')}
-                                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${loginMethod === method ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}
-                            >
-                                {method === 'qr' ? 'QR Kód' : 'Manuálne prihlásenie'}
-                            </button>
-                        ))}
+                        <button onClick={() => setLoginMethod('qr')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${loginMethod === 'qr' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}>
+                            QR Kód
+                        </button>
+                        <button onClick={() => setLoginMethod('manual')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${loginMethod === 'manual' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}>
+                            Manuálne
+                        </button>
                     </div>
                 </div>
 
@@ -51,7 +49,7 @@ const Login: React.FC = () => {
                     <div className="text-center max-w-sm mx-auto">
                         <div className="bg-gray-100 rounded-xl p-6">
                             <QrCode className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-600 mb-4">Pre začiatok naskenujte svoj používateľský QR kód.</p>
+                            <p className="text-gray-600 mb-4">Naskenujte svoj QR kód pre prihlásenie.</p>
                             <button onClick={() => setIsScanning(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 flex items-center justify-center mx-auto">
                                 <QrCode className="w-5 h-5 mr-2" />
                                 Naskenovať QR Používateľa
@@ -82,14 +80,10 @@ const StartTracking: React.FC = () => {
     const { processQRCode } = useTimeTracker();
     const [isScanning, setIsScanning] = useState(false);
 
-    const handleScanSuccess = async (decodedText: string) => {
+    const handleScanSuccess = (decodedText: string) => {
         setIsScanning(false);
-        if (!decodedText.startsWith('PROJECT_ID:')) {
-            alert('Neplatný QR kód. Prosím, naskenujte platný QR kód projektu.');
-            return;
-        }
-        const result = await processQRCode(decodedText);
-        if (!result.success) {
+        const result = processQRCode(decodedText);
+        if (!result.success && result.message) {
             alert(result.message);
         }
     };
@@ -98,7 +92,7 @@ const StartTracking: React.FC = () => {
         <>
             {isScanning && <QRCodeScanner onScanSuccess={handleScanSuccess} onClose={() => setIsScanning(false)} />}
             <div className="bg-white rounded-2xl shadow-xl p-6 mb-6 text-center">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Začať novú reláciu</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Začať nové sledovanie</h2>
                 <div className="bg-gray-100 rounded-xl p-6">
                     <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-600 mb-4">Naskenujte QR kód projektu pre začatie sledovania času.</p>
@@ -113,10 +107,9 @@ const StartTracking: React.FC = () => {
 };
 
 const ActiveSessions: React.FC = () => {
-    const { activeSessions, sessionTimers, currentUser, projects } = useTimeTracker();
+    const { activeSessions, sessionTimers, projects } = useTimeTracker();
 
     const formatTime = (milliseconds: number) => {
-        if (isNaN(milliseconds) || milliseconds < 0) return '00:00:00';
         const totalSeconds = Math.floor(milliseconds / 1000);
         const hours = Math.floor(totalSeconds / 3600);
         const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -127,17 +120,16 @@ const ActiveSessions: React.FC = () => {
     return (
         <div className="bg-white rounded-2xl shadow-xl p-6">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Aktívne Relácie</h2>
+                <h2 className="text-lg font-semibold text-gray-800">Aktívne relácie</h2>
                 <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">{activeSessions.length} aktívnych</div>
             </div>
 
             {activeSessions.length > 0 ? (
                 <div className="space-y-4">
                     {activeSessions.map(session => {
-                        const isCurrentUserSession = currentUser?.id === session.userId;
                         const project = projects.find(p => p.id === session.projectId);
                         return (
-                            <div key={session.id} className={`rounded-lg p-4 border-l-4 ${isCurrentUserSession ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'}`}>
+                            <div key={session.id} className={'rounded-lg p-4 border-l-4 border-gray-300 bg-gray-50'}>
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <div className="flex items-center mb-1">
@@ -148,8 +140,7 @@ const ActiveSessions: React.FC = () => {
                                          {project?.closed && <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full mt-1 inline-block">Projekt Uzatvorený</span>}
                                     </div>
                                     <div className="text-right ml-4">
-                                        <p className="font-mono text-xl font-bold text-blue-600">{sessionTimers[session.id] ? formatTime(sessionTimers[session.id]) : 'Načítava sa...'}</p>
-                                        {isCurrentUserSession && <div className="mt-2 text-blue-800 text-xs font-medium py-1 px-2 rounded-full bg-blue-100">Vaša relácia</div>}
+                                        <p className="font-mono text-xl font-bold text-blue-600">{sessionTimers[session.id] ? formatTime(sessionTimers[session.id]) : '00:00:00'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -167,8 +158,7 @@ const ActiveSessions: React.FC = () => {
 };
 
 const MainTrackingView: React.FC = () => {
-    const { currentUser, setCurrentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
-    const userHasActiveSession = activeSessions.some(s => s.userId === currentUser?.id);
+    const { currentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
 
     const sessionToStop = useMemo(() => {
         if (!userForStopConfirmation) return null;
@@ -183,20 +173,19 @@ const MainTrackingView: React.FC = () => {
     };
 
     const handleCancelStop = () => {
-        if (userForStopConfirmation && (userForStopConfirmation.role === 'admin' || userForStopConfirmation.role === 'manager')) {
-            setCurrentUser(userForStopConfirmation);
-        }
         setUserForStopConfirmation(null);
     };
 
     const formatTime = (milliseconds: number) => {
-        if (isNaN(milliseconds) || milliseconds < 0) return '00:00:00';
+        if (isNaN(milliseconds)) return '00:00:00';
         const totalSeconds = Math.floor(milliseconds / 1000);
         const hours = Math.floor(totalSeconds / 3600);
         const minutes = Math.floor((totalSeconds % 3600) / 60);
         const seconds = totalSeconds % 60;
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     };
+    
+    const userHasActiveSession = activeSessions.some(s => s.userId === currentUser?.id);
 
     return (
         <div className="max-w-4xl mx-auto">
@@ -220,7 +209,7 @@ const MainTrackingView: React.FC = () => {
                         <div className="flex space-x-3">
                             <button onClick={handleCancelStop} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-4 rounded-xl">Zrušiť</button>
                             <button onClick={handleStopSession} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-xl flex items-center justify-center">
-                                <StopCircle className="w-5 h-5 mr-2" /> Zastaviť Reláciu
+                                <StopCircle className="w-5 h-5 mr-2" /> Zastaviť reláciu
                             </button>
                         </div>
                     </div>
