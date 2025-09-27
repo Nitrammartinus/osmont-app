@@ -1,3 +1,4 @@
+// FIX: Replaced incorrect JSON content with proper TypeScript type definitions.
 export type UserRole = 'employee' | 'manager' | 'admin';
 export type View = 'tracking' | 'evaluation' | 'userManagement' | 'projectManagement';
 
@@ -12,7 +13,7 @@ export interface User {
 
 export interface Project {
   id: string;
-  name:string;
+  name: string;
   budget: number;
   deadline: string;
   closed: boolean;
@@ -39,13 +40,6 @@ export interface CompletedSession {
   duration_formatted: string;
 }
 
-export interface QRCodeData {
-  type: 'user' | 'project';
-  id: string;
-  name: string;
-  content: string;
-}
-
 export interface UserBreakdown {
     name: string;
     totalTime: number;
@@ -60,6 +54,6 @@ export interface ProjectEvaluationData extends Project {
     userBreakdown: Record<string, UserBreakdown>;
     allSessions: CompletedSession[];
     costPerHour: number;
-    progressTowardsDeadline: number;
+    workProgressPercentage: number;
     timeVariance: number | null;
 }

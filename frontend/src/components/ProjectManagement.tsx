@@ -88,10 +88,22 @@ const ProjectManagement: React.FC = () => {
                  <div className="bg-white rounded-2xl shadow-xl p-6">
                      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Edit className="w-5 h-5 mr-2 text-green-600" />Upraviť Projekt: {editingProject.name}</h3>
                      <div className="space-y-4">
-                         <input type="text" placeholder="Názov Projektu" value={editingProject.name} onChange={e => setEditingProject({...editingProject, name: e.target.value})} className="w-full p-2 border rounded" />
-                         <input type="number" placeholder="Rozpočet" value={editingProject.budget} onChange={e => setEditingProject({...editingProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded" />
-                         <input type="date" value={editingProject.deadline} onChange={e => setEditingProject({...editingProject, deadline: e.target.value})} className="w-full p-2 border rounded" />
-                         <input type="number" placeholder="Odhadované Hodiny" value={editingProject.estimatedHours || ''} onChange={e => setEditingProject({...editingProject, estimatedHours: Number(e.target.value)})} className="w-full p-2 border rounded" />
+                         <div>
+                            <label htmlFor="edit-project-name" className="block text-sm font-medium text-gray-700 mb-1">Názov Projektu</label>
+                            <input id="edit-project-name" type="text" value={editingProject.name} onChange={e => setEditingProject({...editingProject, name: e.target.value})} className="w-full p-2 border rounded-lg" />
+                         </div>
+                         <div>
+                            <label htmlFor="edit-project-budget" className="block text-sm font-medium text-gray-700 mb-1">Rozpočet (€)</label>
+                            <input id="edit-project-budget" type="number" value={editingProject.budget} onChange={e => setEditingProject({...editingProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded-lg" />
+                         </div>
+                         <div>
+                            <label htmlFor="edit-project-deadline" className="block text-sm font-medium text-gray-700 mb-1">Deadline</label>
+                            <input id="edit-project-deadline" type="date" value={editingProject.deadline} onChange={e => setEditingProject({...editingProject, deadline: e.target.value})} className="w-full p-2 border rounded-lg" />
+                         </div>
+                         <div>
+                            <label htmlFor="edit-project-hours" className="block text-sm font-medium text-gray-700 mb-1">Odhadované Hodiny</label>
+                            <input id="edit-project-hours" type="number" value={editingProject.estimatedHours || ''} onChange={e => setEditingProject({...editingProject, estimatedHours: Number(e.target.value)})} className="w-full p-2 border rounded-lg" />
+                         </div>
                          <div className="flex space-x-2">
                             <button onClick={handleUpdateProject} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Uložiť</button>
                             <button onClick={() => setEditingProject(null)} className="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300">Zrušiť</button>
@@ -107,10 +119,22 @@ const ProjectManagement: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-xl p-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><FolderPlus className="w-5 h-5 mr-2 text-green-600" />Pridať nový projekt</h3>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" placeholder="Názov Projektu" value={newProject.name || ''} onChange={e => setNewProject({...newProject, name: e.target.value})} className="w-full p-2 border rounded" />
-                    <input type="number" placeholder="Rozpočet" value={newProject.budget || ''} onChange={e => setNewProject({...newProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded" />
-                    <input type="date" value={newProject.deadline || ''} onChange={e => setNewProject({...newProject, deadline: e.target.value})} className="w-full p-2 border rounded" />
-                    <input type="number" placeholder="Odhadované Hodiny" value={newProject.estimatedHours || ''} onChange={e => setNewProject({...newProject, estimatedHours: Number(e.target.value)})} className="w-full p-2 border rounded" />
+                     <div>
+                        <label htmlFor="new-project-name" className="block text-sm font-medium text-gray-700 mb-1">Názov Projektu</label>
+                        <input id="new-project-name" type="text" value={newProject.name || ''} onChange={e => setNewProject({...newProject, name: e.target.value})} className="w-full p-2 border rounded-lg" />
+                     </div>
+                     <div>
+                        <label htmlFor="new-project-budget" className="block text-sm font-medium text-gray-700 mb-1">Rozpočet (€)</label>
+                        <input id="new-project-budget" type="number" value={newProject.budget || ''} onChange={e => setNewProject({...newProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded-lg" />
+                     </div>
+                     <div>
+                        <label htmlFor="new-project-deadline" className="block text-sm font-medium text-gray-700 mb-1">Deadline</label>
+                        <input id="new-project-deadline" type="date" value={newProject.deadline || ''} onChange={e => setNewProject({...newProject, deadline: e.target.value})} className="w-full p-2 border rounded-lg" />
+                     </div>
+                     <div>
+                        <label htmlFor="new-project-hours" className="block text-sm font-medium text-gray-700 mb-1">Odhadované Hodiny</label>
+                        <input id="new-project-hours" type="number" value={newProject.estimatedHours || ''} onChange={e => setNewProject({...newProject, estimatedHours: Number(e.target.value)})} className="w-full p-2 border rounded-lg" />
+                     </div>
                 </div>
                 <button onClick={handleAddProject} className="mt-4 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Pridať Projekt</button>
             </div>
