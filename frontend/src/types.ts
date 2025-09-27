@@ -25,17 +25,18 @@ export interface ActiveSession {
   userName: string;
   projectId: string;
   projectName: string;
-  startTime: string; // From DB, this will be an ISO string
+  startTime: number;
 }
 
 export interface CompletedSession {
-  id?: number;
+  id: number;
   timestamp: string;
   employee_id: string;
   employee_name: string;
   project_id: string;
   project_name: string;
   duration_minutes: number;
+  duration_formatted: string;
 }
 
 export interface QRCodeData {

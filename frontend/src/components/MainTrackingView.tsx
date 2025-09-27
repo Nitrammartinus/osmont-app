@@ -25,7 +25,7 @@ const Login: React.FC = () => {
     const handleScanSuccess = (decodedText: string) => {
         setIsScanning(false);
         const result = processQRCode(decodedText);
-        if (!result.success) {
+        if (!result.success && result.message) {
             alert(result.message);
         }
     };
@@ -158,10 +158,8 @@ const ActiveSessions: React.FC = () => {
 };
 
 const MainTrackingView: React.FC = () => {
-    // FIX: Get setUserForStopConfirmation from context to manage modal state
     const { currentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
 
-    // FIX: Remove local state for the modal and use the context state directly
     const sessionToStop = useMemo(() => {
         if (!userForStopConfirmation) return null;
         return activeSessions.find(s => s.userId === userForStopConfirmation.id);
@@ -171,12 +169,10 @@ const MainTrackingView: React.FC = () => {
         if (userForStopConfirmation) {
             await stopSessionForUser(userForStopConfirmation);
         }
-        // FIX: Clear context state to close the modal
         setUserForStopConfirmation(null);
     };
 
     const handleCancelStop = () => {
-        // FIX: Clear context state to close the modal
         setUserForStopConfirmation(null);
     };
 
@@ -193,7 +189,6 @@ const MainTrackingView: React.FC = () => {
 
     return (
         <div className="max-w-4xl mx-auto">
-            {/* FIX: Check context state directly for rendering */}
             {!currentUser && !userForStopConfirmation && <Login />}
             {currentUser && !userHasActiveSession && <StartTracking />}
             <ActiveSessions />
