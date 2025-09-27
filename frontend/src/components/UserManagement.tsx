@@ -36,14 +36,14 @@ const UserManagement: React.FC = () => {
         alert('Používateľ úspešne aktualizovaný!');
     };
 
-    const handleDeleteUser = (userId: string) => {
+    const handleDeleteUser = async (userId: string) => {
         if (window.confirm('Naozaj chcete vymazať tohto používateľa?')) {
-            deleteUser(userId);
+            await deleteUser(userId);
         }
     };
     
-    const toggleUserBlock = (user: User) => {
-        updateUser({ ...user, blocked: !user.blocked });
+    const toggleUserBlock = async (user: User) => {
+        await updateUser({ ...user, blocked: !user.blocked });
     };
 
     const generateQRCode = (user: User) => {

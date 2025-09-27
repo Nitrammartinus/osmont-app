@@ -32,14 +32,14 @@ const ProjectManagement: React.FC = () => {
         alert('Projekt úspešne aktualizovaný!');
     };
 
-    const handleDeleteProject = (projectId: string) => {
+    const handleDeleteProject = async (projectId: string) => {
         if (window.confirm('Naozaj chcete vymazať tento projekt?')) {
-            deleteProject(projectId);
+            await deleteProject(projectId);
         }
     };
     
-    const toggleProjectStatus = (project: Project) => {
-        updateProject({ ...project, closed: !project.closed });
+    const toggleProjectStatus = async (project: Project) => {
+        await updateProject({ ...project, closed: !project.closed });
     };
     
     const generateQRCode = (project: Project) => {

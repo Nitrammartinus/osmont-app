@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-import { ProjectEvaluationData, UserBreakdown } from '../types';
+// FIX: import CompletedSession type
+import { ProjectEvaluationData, UserBreakdown, CompletedSession } from '../types';
 import { ChevronLeft, Clock, Users, Calendar, DollarSign, Download, BarChart3, TrendingUp, ArrowLeftRight } from './Icons';
 
 const formatDuration = (minutes: number) => {
@@ -129,7 +130,7 @@ const EvaluationDashboard: React.FC = () => {
     }, [completedSessions, startDate, endDate]);
     
     const filteredEvaluationData = useMemo(() => {
-        const evaluationSource = Object.values(projectEvaluation);
+        const evaluationSource: ProjectEvaluationData[] = Object.values(projectEvaluation);
         if (!startDate && !endDate) {
             return evaluationSource;
         }
@@ -140,7 +141,7 @@ const EvaluationDashboard: React.FC = () => {
         const filteredData: ProjectEvaluationData[] = [];
 
         for (const project of evaluationSource) {
-            const filteredSessions = project.allSessions.filter(session => {
+            const filteredSessions = project.allSessions.filter((session: CompletedSession) => {
                 const sessionDate = new Date(session.timestamp).getTime();
                 return sessionDate >= start && sessionDate <= end;
             });
@@ -149,7 +150,7 @@ const EvaluationDashboard: React.FC = () => {
                 const totalTime = filteredSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
                 const uniqueUsers = [...new Set(filteredSessions.map(s => s.employee_id))].length;
 
-                const userBreakdown: ProjectEvaluationData['userBreakdown'] = {};
+                const userBreakdown: Record<string, UserBreakdown> = {};
                 filteredSessions.forEach(session => {
                     if (!userBreakdown[session.employee_id]) {
                         userBreakdown[session.employee_id] = { name: session.employee_name, totalTime: 0, sessions: 0 };
@@ -175,7 +176,7 @@ const EvaluationDashboard: React.FC = () => {
     const totalTrackedTime = filteredCompletedSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
 
     if (selectedProject) {
-        const updatedProjectData = filteredEvaluationData.find(p => p.id === selectedProject.id);
+        const updatedProjectData = filteredEvaluationData.find((p: ProjectEvaluationData) => p.id === selectedProject.id);
         if(updatedProjectData) {
             return <ProjectDetailsView projectData={updatedProjectData} onBack={() => setSelectedProject(null)} />;
         }
