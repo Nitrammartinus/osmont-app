@@ -1,4 +1,3 @@
-// FIX: Replaced incorrect JSON content with proper TypeScript type definitions.
 export type UserRole = 'employee' | 'manager' | 'admin';
 export type View = 'tracking' | 'evaluation' | 'userManagement' | 'projectManagement';
 
@@ -26,7 +25,7 @@ export interface ActiveSession {
   userName: string;
   projectId: string;
   projectName: string;
-  startTime: number;
+  startTime: string; // Comes from DB as ISO string
 }
 
 export interface CompletedSession {
@@ -47,13 +46,13 @@ export interface UserBreakdown {
 }
 
 export interface ProjectEvaluationData extends Project {
-    totalTime: number;
-    uniqueUsers: number;
-    sessions: number;
-    averageSession: number;
-    userBreakdown: Record<string, UserBreakdown>;
-    allSessions: CompletedSession[];
-    costPerHour: number;
-    workProgressPercentage: number;
-    timeVariance: number | null;
+    totalTime: number; // in period
+    uniqueUsers: number; // in period
+    sessions: number; // in period
+    averageSession: number; // in period
+    userBreakdown: Record<string, UserBreakdown>; // in period
+    allSessions: CompletedSession[]; // in period
+    costPerHour: number; // lifetime
+    workProgressPercentage: number; // lifetime
+    timeVariance: number | null; // lifetime
 }

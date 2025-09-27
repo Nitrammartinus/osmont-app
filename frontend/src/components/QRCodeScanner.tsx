@@ -28,6 +28,9 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScanSuccess, onClose })
                     if (html5QrCode && html5QrCode.isScanning) {
                         html5QrCode.stop().then(() => {
                              onScanSuccess(decodedText);
+                        }).catch(err => {
+                            console.error("Error stopping scanner after success:", err);
+                            onScanSuccess(decodedText); // Proceed even if stop fails
                         });
                     }
                 },
@@ -45,7 +48,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScanSuccess, onClose })
 
         return () => {
             if (html5QrCode && html5QrCode.isScanning) {
-                html5QrCode.stop().catch((err: any) => console.error("Nepodarilo sa zastaviť skener", err));
+                html5QrCode.stop().catch((err: any) => console.error("Nepodarilo sa zastaviť skener pri čistení", err));
             }
         };
     }, [onScanSuccess, onClose]);
@@ -57,7 +60,9 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScanSuccess, onClose })
                     <X className="w-6 h-6" />
                 </button>
                 <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Naskenovať QR Kód</h3>
-                <div id={readerId} className="w-full rounded-lg overflow-hidden border-2 border-gray-300"></div>
+                <div className="w-full rounded-lg overflow-hidden relative">
+                    <div id={readerId}></div>
+                </div>
                 <p className="text-sm text-gray-500 mt-4 text-center">Zamierte kameru na QR kód.</p>
             </div>
         </div>
