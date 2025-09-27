@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
 // FIX: Import User type separately and alias the User icon to avoid name collision.
 import { User as UserIcon, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
@@ -158,30 +158,26 @@ const ActiveSessions: React.FC = () => {
 };
 
 const MainTrackingView: React.FC = () => {
-    const { currentUser, activeSessions, userForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
-    const [localUserForStop, setLocalUserForStop] = useState<User | null>(null);
+    // FIX: Get setUserForStopConfirmation from context to manage modal state
+    const { currentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
 
-    // This effect synchronizes the confirmation modal with the global state
-    useEffect(() => {
-        if (userForStopConfirmation) {
-            setLocalUserForStop(userForStopConfirmation);
-        }
-    }, [userForStopConfirmation]);
-
+    // FIX: Remove local state for the modal and use the context state directly
     const sessionToStop = useMemo(() => {
-        if (!localUserForStop) return null;
-        return activeSessions.find(s => s.userId === localUserForStop.id);
-    }, [localUserForStop, activeSessions]);
+        if (!userForStopConfirmation) return null;
+        return activeSessions.find(s => s.userId === userForStopConfirmation.id);
+    }, [userForStopConfirmation, activeSessions]);
 
     const handleStopSession = async () => {
-        if (localUserForStop) {
-            await stopSessionForUser(localUserForStop);
+        if (userForStopConfirmation) {
+            await stopSessionForUser(userForStopConfirmation);
         }
-        setLocalUserForStop(null); // Close modal
+        // FIX: Clear context state to close the modal
+        setUserForStopConfirmation(null);
     };
 
     const handleCancelStop = () => {
-        setLocalUserForStop(null); // Close modal
+        // FIX: Clear context state to close the modal
+        setUserForStopConfirmation(null);
     };
 
     const formatTime = (milliseconds: number) => {
@@ -197,18 +193,19 @@ const MainTrackingView: React.FC = () => {
 
     return (
         <div className="max-w-4xl mx-auto">
-            {!currentUser && !localUserForStop && <Login />}
+            {/* FIX: Check context state directly for rendering */}
+            {!currentUser && !userForStopConfirmation && <Login />}
             {currentUser && !userHasActiveSession && <StartTracking />}
             <ActiveSessions />
 
-            {sessionToStop && localUserForStop && (
+            {sessionToStop && userForStopConfirmation && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
                         <div className="text-center mb-4">
                             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <StopCircle className="w-8 h-8 text-red-600" />
                             </div>
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">Zastaviť reláciu pre {localUserForStop.name}?</h3>
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">Zastaviť reláciu pre {userForStopConfirmation.name}?</h3>
                             <p className="text-gray-600">Chystáte sa zastaviť aktívnu reláciu pre projekt <strong>{sessionToStop.projectName}</strong>.</p>
                             <p className="text-lg text-gray-800 mt-2 font-mono">
                                 {sessionTimers[sessionToStop.id] ? formatTime(sessionTimers[sessionToStop.id]) : '00:00:00'}
