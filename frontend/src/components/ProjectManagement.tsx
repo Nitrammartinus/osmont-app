@@ -7,7 +7,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 const ProjectManagement: React.FC = () => {
     const { projects, addProject, updateProject, deleteProject } = useTimeTracker();
     const [editingProject, setEditingProject] = useState<Project | null>(null);
-    const [newProject, setNewProject] = useState<Partial<Project>>({ name: '', budget: 0, deadline: '', estimatedHours: 0 });
+    const [newProject, setNewProject] = useState<Partial<Project>>({ name: '', budget: 0, deadline: '', estimatedHours: 0, closed: false });
     const [showQRCode, setShowQRCode] = useState<{ project: Project, content: string } | null>(null);
     const qrCodeRef = useRef<HTMLDivElement>(null);
 
@@ -16,18 +16,24 @@ const ProjectManagement: React.FC = () => {
             alert('Prosím, vyplňte všetky polia pre nový projekt.');
             return;
         }
-        await addProject({
-            ...newProject,
+        await addProject({ 
+            ...newProject, 
             id: `proj${Date.now()}`,
-            closed: false,
+            budget: Number(newProject.budget),
+            estimatedHours: Number(newProject.estimatedHours) || undefined,
         });
-        setNewProject({ name: '', budget: 0, deadline: '', estimatedHours: 0 });
+        setNewProject({ name: '', budget: 0, deadline: '', estimatedHours: 0, closed: false });
         alert('Projekt úspešne pridaný!');
     };
 
     const handleUpdateProject = async () => {
         if (!editingProject) return;
-        await updateProject(editingProject);
+        const projectToUpdate = {
+            ...editingProject,
+            budget: Number(editingProject.budget),
+            estimatedHours: Number(editingProject.estimatedHours) || undefined,
+        }
+        await updateProject(projectToUpdate);
         setEditingProject(null);
         alert('Projekt úspešne aktualizovaný!');
     };
@@ -52,7 +58,7 @@ const ProjectManagement: React.FC = () => {
             if (canvas) {
                 const link = document.createElement('a');
                 link.href = canvas.toDataURL('image/png');
-                link.download = `qr_kod_projekt_${showQRCode.project.name.replace(/\s+/g, '_')}.png`;
+                link.download = `qr_kod_projektu_${showQRCode.project.name.replace(/\s+/g, '_')}.png`;
                 link.click();
             }
         }
@@ -71,8 +77,8 @@ const ProjectManagement: React.FC = () => {
                     <div ref={qrCodeRef} className="bg-white p-4 inline-block rounded-lg border">
                         <QRCodeCanvas value={showQRCode.content} size={224} />
                     </div>
-                     <p className="text-xs text-gray-500 mt-2 font-mono break-all">{showQRCode.content}</p>
-                     <button
+                    <p className="text-xs text-gray-500 mt-2 font-mono break-all">{showQRCode.content}</p>
+                    <button
                         onClick={downloadQRCode}
                         className="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center">
                         <Download className="w-4 h-4 mr-2" /> Stiahnuť Obrázok
@@ -88,22 +94,10 @@ const ProjectManagement: React.FC = () => {
                  <div className="bg-white rounded-2xl shadow-xl p-6">
                      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Edit className="w-5 h-5 mr-2 text-green-600" />Upraviť Projekt: {editingProject.name}</h3>
                      <div className="space-y-4">
-                         <div>
-                            <label htmlFor="edit-project-name" className="block text-sm font-medium text-gray-700 mb-1">Názov Projektu</label>
-                            <input id="edit-project-name" type="text" value={editingProject.name} onChange={e => setEditingProject({...editingProject, name: e.target.value})} className="w-full p-2 border rounded-lg" />
-                         </div>
-                         <div>
-                            <label htmlFor="edit-project-budget" className="block text-sm font-medium text-gray-700 mb-1">Rozpočet (€)</label>
-                            <input id="edit-project-budget" type="number" value={editingProject.budget} onChange={e => setEditingProject({...editingProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded-lg" />
-                         </div>
-                         <div>
-                            <label htmlFor="edit-project-deadline" className="block text-sm font-medium text-gray-700 mb-1">Deadline</label>
-                            <input id="edit-project-deadline" type="date" value={editingProject.deadline} onChange={e => setEditingProject({...editingProject, deadline: e.target.value})} className="w-full p-2 border rounded-lg" />
-                         </div>
-                         <div>
-                            <label htmlFor="edit-project-hours" className="block text-sm font-medium text-gray-700 mb-1">Odhadované Hodiny</label>
-                            <input id="edit-project-hours" type="number" value={editingProject.estimatedHours || ''} onChange={e => setEditingProject({...editingProject, estimatedHours: Number(e.target.value)})} className="w-full p-2 border rounded-lg" />
-                         </div>
+                         <input type="text" placeholder="Názov Projektu" value={editingProject.name} onChange={e => setEditingProject({...editingProject, name: e.target.value})} className="w-full p-2 border rounded" />
+                         <input type="number" placeholder="Rozpočet" value={editingProject.budget} onChange={e => setEditingProject({...editingProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded" />
+                         <input type="date" value={editingProject.deadline} onChange={e => setEditingProject({...editingProject, deadline: e.target.value})} className="w-full p-2 border rounded" />
+                         <input type="number" placeholder="Odhadované hodiny" value={editingProject.estimatedHours || ''} onChange={e => setEditingProject({...editingProject, estimatedHours: Number(e.target.value)})} className="w-full p-2 border rounded" />
                          <div className="flex space-x-2">
                             <button onClick={handleUpdateProject} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Uložiť</button>
                             <button onClick={() => setEditingProject(null)} className="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300">Zrušiť</button>
@@ -119,22 +113,10 @@ const ProjectManagement: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-xl p-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><FolderPlus className="w-5 h-5 mr-2 text-green-600" />Pridať nový projekt</h3>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div>
-                        <label htmlFor="new-project-name" className="block text-sm font-medium text-gray-700 mb-1">Názov Projektu</label>
-                        <input id="new-project-name" type="text" value={newProject.name || ''} onChange={e => setNewProject({...newProject, name: e.target.value})} className="w-full p-2 border rounded-lg" />
-                     </div>
-                     <div>
-                        <label htmlFor="new-project-budget" className="block text-sm font-medium text-gray-700 mb-1">Rozpočet (€)</label>
-                        <input id="new-project-budget" type="number" value={newProject.budget || ''} onChange={e => setNewProject({...newProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded-lg" />
-                     </div>
-                     <div>
-                        <label htmlFor="new-project-deadline" className="block text-sm font-medium text-gray-700 mb-1">Deadline</label>
-                        <input id="new-project-deadline" type="date" value={newProject.deadline || ''} onChange={e => setNewProject({...newProject, deadline: e.target.value})} className="w-full p-2 border rounded-lg" />
-                     </div>
-                     <div>
-                        <label htmlFor="new-project-hours" className="block text-sm font-medium text-gray-700 mb-1">Odhadované Hodiny</label>
-                        <input id="new-project-hours" type="number" value={newProject.estimatedHours || ''} onChange={e => setNewProject({...newProject, estimatedHours: Number(e.target.value)})} className="w-full p-2 border rounded-lg" />
-                     </div>
+                    <input type="text" placeholder="Názov Projektu" value={newProject.name || ''} onChange={e => setNewProject({...newProject, name: e.target.value})} className="w-full p-2 border rounded" />
+                    <input type="number" placeholder="Rozpočet" value={newProject.budget || ''} onChange={e => setNewProject({...newProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded" />
+                    <input type="date" value={newProject.deadline || ''} onChange={e => setNewProject({...newProject, deadline: e.target.value})} className="w-full p-2 border rounded" />
+                    <input type="number" placeholder="Odhadované hodiny" value={newProject.estimatedHours || ''} onChange={e => setNewProject({...newProject, estimatedHours: Number(e.target.value)})} className="w-full p-2 border rounded" />
                 </div>
                 <button onClick={handleAddProject} className="mt-4 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Pridať Projekt</button>
             </div>
