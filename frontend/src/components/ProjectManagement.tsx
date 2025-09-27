@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
 import { Project } from '../types';
 import { FolderPlus, Edit, Trash2, Lock, Unlock, QrCode, ChevronLeft, Download } from './Icons';
+import { QRCodeCanvas } from 'qrcode.react';
 
 const ProjectManagement: React.FC = () => {
     const { projects, addProject, updateProject, deleteProject } = useTimeTracker();
     const [editingProject, setEditingProject] = useState<Project | null>(null);
     const [newProject, setNewProject] = useState<Partial<Project>>({ name: '', budget: 0, deadline: '', estimatedHours: 0 });
     const [showQRCode, setShowQRCode] = useState<{ project: Project, content: string } | null>(null);
+    const qrCodeRef = useRef<HTMLDivElement>(null);
 
     const handleAddProject = async () => {
         if (!newProject.name || !newProject.budget || !newProject.deadline) {
@@ -44,6 +46,18 @@ const ProjectManagement: React.FC = () => {
         setShowQRCode({ project, content: `PROJECT_ID:${project.id}` });
     };
 
+    const downloadQRCode = () => {
+        if (qrCodeRef.current && showQRCode) {
+            const canvas = qrCodeRef.current.querySelector('canvas');
+            if (canvas) {
+                const link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = `qr_kod_projekt_${showQRCode.project.name.replace(/\s+/g, '_')}.png`;
+                link.click();
+            }
+        }
+    };
+
     if (showQRCode) {
         return (
              <div className="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-xl">
@@ -52,20 +66,16 @@ const ProjectManagement: React.FC = () => {
                     Späť na zoznam projektov
                 </button>
                 <div className="text-center">
-                    <QrCode className="w-24 h-24 text-green-600 mx-auto mb-4" />
                     <h2 className="text-xl font-bold text-gray-800">QR Kód Projektu</h2>
                     <p className="text-gray-600 mb-4">{showQRCode.project.name}</p>
-                    <div className="bg-gray-100 p-4 rounded-lg mb-4 break-all font-mono">{showQRCode.content}</div>
+                    <div ref={qrCodeRef} className="bg-white p-4 inline-block rounded-lg border">
+                        <QRCodeCanvas value={showQRCode.content} size={224} />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2 font-mono break-all">{showQRCode.content}</p>
                      <button
-                        onClick={() => {
-                            const blob = new Blob([showQRCode.content], { type: 'text/plain' });
-                            const link = document.createElement('a');
-                            link.href = URL.createObjectURL(blob);
-                            link.download = `project_qr_${showQRCode.project.name.replace(/\s+/g, '_')}.txt`;
-                            link.click();
-                        }}
-                        className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center">
-                        <Download className="w-4 h-4 mr-2" /> Stiahnuť
+                        onClick={downloadQRCode}
+                        className="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center">
+                        <Download className="w-4 h-4 mr-2" /> Stiahnuť Obrázok
                     </button>
                 </div>
             </div>
