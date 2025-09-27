@@ -39,9 +39,9 @@ const initializeDatabase = async () => {
       CREATE TABLE IF NOT EXISTS completed_sessions (
         id SERIAL PRIMARY KEY,
         timestamp TIMESTAMPTZ NOT NULL,
-        employee_id VARCHAR(50) REFERENCES users(id),
+        employee_id VARCHAR(50) REFERENCES users(id) ON DELETE SET NULL,
         employee_name VARCHAR(100),
-        project_id VARCHAR(50) REFERENCES projects(id),
+        project_id VARCHAR(50) REFERENCES projects(id) ON DELETE CASCADE,
         project_name VARCHAR(100),
         duration_minutes INT NOT NULL
       );

@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-import { User, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
+import { User as UserType } from '../types';
+import { User as UserIcon, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
 import QRCodeScanner from './QRCodeScanner';
 
 const Login: React.FC = () => {
@@ -115,6 +116,7 @@ const ActiveSessions: React.FC = () => {
     const { activeSessions, sessionTimers, currentUser, projects } = useTimeTracker();
 
     const formatTime = (milliseconds: number) => {
+        if (isNaN(milliseconds) || milliseconds < 0) return '00:00:00';
         const totalSeconds = Math.floor(milliseconds / 1000);
         const hours = Math.floor(totalSeconds / 3600);
         const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -139,14 +141,14 @@ const ActiveSessions: React.FC = () => {
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <div className="flex items-center mb-1">
-                                            <User className="w-4 h-4 text-gray-600 mr-2" />
+                                            <UserIcon className="w-4 h-4 text-gray-600 mr-2" />
                                             <p className="font-medium text-gray-800">{session.userName}</p>
                                         </div>
                                         <p className="text-sm text-gray-700 font-medium">{session.projectName}</p>
                                          {project?.closed && <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full mt-1 inline-block">Projekt Uzatvorený</span>}
                                     </div>
                                     <div className="text-right ml-4">
-                                        <p className="font-mono text-xl font-bold text-blue-600">{sessionTimers[session.id] ? formatTime(sessionTimers[session.id]) : '00:00:00'}</p>
+                                        <p className="font-mono text-xl font-bold text-blue-600">{sessionTimers[session.id] ? formatTime(sessionTimers[session.id]) : 'Načítava sa...'}</p>
                                         {isCurrentUserSession && <div className="mt-2 text-blue-800 text-xs font-medium py-1 px-2 rounded-full bg-blue-100">Vaša relácia</div>}
                                     </div>
                                 </div>
@@ -165,7 +167,7 @@ const ActiveSessions: React.FC = () => {
 };
 
 const MainTrackingView: React.FC = () => {
-    const { currentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
+    const { currentUser, setCurrentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
     const userHasActiveSession = activeSessions.some(s => s.userId === currentUser?.id);
 
     const sessionToStop = useMemo(() => {
@@ -181,11 +183,14 @@ const MainTrackingView: React.FC = () => {
     };
 
     const handleCancelStop = () => {
+        if (userForStopConfirmation && (userForStopConfirmation.role === 'admin' || userForStopConfirmation.role === 'manager')) {
+            setCurrentUser(userForStopConfirmation);
+        }
         setUserForStopConfirmation(null);
     };
 
     const formatTime = (milliseconds: number) => {
-        if (isNaN(milliseconds)) return '00:00:00';
+        if (isNaN(milliseconds) || milliseconds < 0) return '00:00:00';
         const totalSeconds = Math.floor(milliseconds / 1000);
         const hours = Math.floor(totalSeconds / 3600);
         const minutes = Math.floor((totalSeconds % 3600) / 60);

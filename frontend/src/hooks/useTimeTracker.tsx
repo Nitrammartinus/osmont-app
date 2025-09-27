@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useContext, createContext, useCallback, useMemo } from 'react';
-import { User, Project, ActiveSession, CompletedSession, View, ProjectEvaluationData, UserRole } from '../types';
+// FIX: Add UserBreakdown to the import list.
+import { User, Project, ActiveSession, CompletedSession, View, ProjectEvaluationData, UserBreakdown } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000';
+const API_URL = import.meta.env.VITE_API_URL;
 
 const formatDuration = (minutes: number) => {
     if (isNaN(minutes)) return '0h 0m';
@@ -64,8 +65,8 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [userForStopConfirmation, setUserForStopConfirmation] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     
-    const fetchData = useCallback(async () => {
-        setIsLoading(true);
+    const fetchData = useCallback(async (isInitial = false) => {
+        if (isInitial) setIsLoading(true);
         try {
             const [usersRes, projectsRes, activeSessionsRes, completedSessionsRes] = await Promise.all([
                 fetch(`${API_URL}/api/users`),
@@ -73,15 +74,15 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 fetch(`${API_URL}/api/active-sessions`),
                 fetch(`${API_URL}/api/sessions/completed`),
             ]);
+
+            if (!usersRes.ok || !projectsRes.ok || !activeSessionsRes.ok || !completedSessionsRes.ok) {
+                 throw new Error('Network response was not ok');
+            }
+
             const usersData = await usersRes.json();
             const projectsData = await projectsRes.json();
             const activeSessionsData = await activeSessionsRes.json();
             const completedSessionsData = await completedSessionsRes.json();
-
-            const formattedActiveSessions = activeSessionsData.map((s: any) => ({
-                ...s,
-                startTime: new Date(s.startTime).getTime(),
-            }));
 
             const formattedCompletedSessions = completedSessionsData.map((s: any) => ({
                 ...s,
@@ -90,18 +91,20 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
             setUsers(usersData);
             setProjects(projectsData);
-            setActiveSessions(formattedActiveSessions);
+            setActiveSessions(activeSessionsData);
             setCompletedSessions(formattedCompletedSessions);
         } catch (error) {
-            console.error("Failed to fetch initial data:", error);
-            alert("Could not connect to the server. Please check your connection and refresh the page.");
+            console.error("Failed to fetch data:", error);
+            if (isInitial) alert("Nepodarilo sa pripojiť k serveru. Skontrolujte prosím svoje internetové pripojenie a obnovte stránku.");
         } finally {
-            setIsLoading(false);
+            if (isInitial) setIsLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchData();
+        fetchData(true);
+        const intervalId = setInterval(() => fetchData(false), 5000); // Poll every 5 seconds
+        return () => clearInterval(intervalId);
     }, [fetchData]);
 
     useEffect(() => {
@@ -109,7 +112,8 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             const now = Date.now();
             const updatedTimers: Record<number, number> = {};
             activeSessions.forEach(session => {
-                updatedTimers[session.id] = now - session.startTime;
+                const startTime = new Date(session.startTime).getTime();
+                updatedTimers[session.id] = now - startTime;
             });
             setSessionTimers(updatedTimers);
         }, 1000);
@@ -127,9 +131,9 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 await fetchData();
             } else {
                 const err = await res.json();
-                alert(`Error adding user: ${err.error}`);
+                alert(`Chyba pri pridaní používateľa: ${err.error}`);
             }
-        } catch (error) { console.error(error); alert('Failed to add user.'); }
+        } catch (error) { console.error(error); alert('Nepodarilo sa pridať používateľa.'); }
     };
     
     const updateUser = async (user: User) => {
@@ -143,20 +147,20 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 await fetchData();
             } else {
                 const err = await res.json();
-                alert(`Error updating user: ${err.error}`);
+                alert(`Chyba pri aktualizácii používateľa: ${err.error}`);
             }
-        } catch (error) { console.error(error); alert('Failed to update user.'); }
+        } catch (error) { console.error(error); alert('Nepodarilo sa aktualizovať používateľa.'); }
     };
 
     const deleteUser = async (userId: string) => {
         try {
             const res = await fetch(`${API_URL}/api/users/${userId}`, { method: 'DELETE' });
             if (res.ok) {
-                setUsers(prev => prev.filter(u => u.id !== userId));
+                await fetchData();
             } else {
-                alert('Error deleting user.');
+                alert('Chyba pri mazaní používateľa.');
             }
-        } catch (error) { console.error(error); alert('Failed to delete user.'); }
+        } catch (error) { console.error(error); alert('Nepodarilo sa vymazať používateľa.'); }
     };
 
     const addProject = async (project: Partial<Project>) => {
@@ -169,9 +173,9 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             if (res.ok) {
                 await fetchData();
             } else {
-                alert('Error adding project.');
+                alert('Chyba pri pridaní projektu.');
             }
-        } catch (error) { console.error(error); alert('Failed to add project.'); }
+        } catch (error) { console.error(error); alert('Nepodarilo sa pridať projekt.'); }
     };
     
     const updateProject = async (project: Project) => {
@@ -184,24 +188,24 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             if(res.ok) {
                 await fetchData();
             } else {
-                alert('Error updating project.');
+                alert('Chyba pri aktualizácii projektu.');
             }
-        } catch (error) { console.error(error); alert('Failed to update project.'); }
+        } catch (error) { console.error(error); alert('Nepodarilo sa aktualizovať projekt.'); }
     };
 
     const deleteProject = async (projectId: string) => {
         try {
             const res = await fetch(`${API_URL}/api/projects/${projectId}`, { method: 'DELETE' });
             if (res.ok) {
-                setProjects(prev => prev.filter(p => p.id !== projectId));
+                await fetchData();
             } else {
-                alert('Error deleting project.');
+                alert('Chyba pri mazaní projektu.');
             }
-        } catch (error) { console.error(error); alert('Failed to delete project.'); }
+        } catch (error) { console.error(error); alert('Nepodarilo sa vymazať projekt.'); }
     };
 
     const startSession = async (projectId: string) => {
-        if (!currentUser) return { success: false, message: 'No user logged in.'};
+        if (!currentUser) return { success: false, message: 'Žiaden používateľ nie je prihlásený.'};
         try {
             const res = await fetch(`${API_URL}/api/active-sessions`, {
                 method: 'POST',
@@ -245,7 +249,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             });
             if(res.ok) {
                 const user = await res.json();
-                if (activeSessions.some(s => s.userId === user.id)) {
+                 if (activeSessions.some(s => s.userId === user.id)) {
                     setUserForStopConfirmation(user);
                 } else {
                     setCurrentUser(user);
@@ -263,8 +267,9 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
 
     const processQRCode = async (qrText: string): Promise<{ success: boolean; message: string; }> => {
-        if (qrText.startsWith('USER_ID:')) {
-            const userId = qrText.substring('USER_ID:'.length);
+        const trimmedText = qrText.trim();
+        if (trimmedText.startsWith('USER_ID:')) {
+            const userId = trimmedText.substring('USER_ID:'.length);
             const user = users.find(u => u.id === userId && !u.blocked);
             if (user) {
                 if (activeSessions.some(session => session.userId === user.id)) {
@@ -277,14 +282,14 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             } else {
                 return { success: false, message: 'Neplatný alebo zablokovaný QR kód používateľa.' };
             }
-        } else if (qrText.startsWith('PROJECT_ID:')) {
+        } else if (trimmedText.startsWith('PROJECT_ID:')) {
             if (!currentUser) {
                 return { success: false, message: 'Pred skenovaním projektu sa prosím prihláste.' };
             }
             if (activeSessions.some(session => session.userId === currentUser.id)) {
                  return { success: false, message: 'Už máte aktívnu reláciu. Pre jej zastavenie sa prosím znova overte.' };
             }
-            const projectId = qrText.substring('PROJECT_ID:'.length);
+            const projectId = trimmedText.substring('PROJECT_ID:'.length);
             const project = projects.find(p => p.id === projectId && !p.closed);
             if (project) {
                 return await startSession(projectId);
@@ -316,32 +321,33 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const projectEvaluation = useMemo((): Record<string, ProjectEvaluationData> => {
         const evaluation: Record<string, ProjectEvaluationData> = {};
         projects.forEach(project => {
-            const projectSessions = completedSessions.filter(s => s.project_id === project.id);
-            const totalTime = projectSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
-            const totalHours = totalTime / 60;
-            const uniqueUsers = [...new Set(projectSessions.map(s => s.employee_id))].length;
+            // Lifetime calculations
+            const allProjectSessions = completedSessions.filter(s => s.project_id === project.id);
+            const lifetimeTotalTime = allProjectSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
+            const lifetimeTotalHours = lifetimeTotalTime / 60;
+            const costPerHour = lifetimeTotalHours > 0 ? project.budget / lifetimeTotalHours : 0;
+            const timeVariance = project.estimatedHours != null ? lifetimeTotalHours - project.estimatedHours : null;
+            const workProgressPercentage = (project.estimatedHours && lifetimeTotalHours > 0) ? Math.min(100, (lifetimeTotalHours / project.estimatedHours) * 100) : 0;
 
-            const userBreakdown: ProjectEvaluationData['userBreakdown'] = {};
-            projectSessions.forEach(session => {
+            // In-period calculations (for display)
+            const uniqueUsers = [...new Set(allProjectSessions.map(s => s.employee_id))].length;
+            const userBreakdown: Record<string, UserBreakdown> = {};
+            allProjectSessions.forEach(session => {
                 if (!userBreakdown[session.employee_id]) {
                     userBreakdown[session.employee_id] = { name: session.employee_name, totalTime: 0, sessions: 0 };
                 }
                 userBreakdown[session.employee_id].totalTime += session.duration_minutes;
                 userBreakdown[session.employee_id].sessions += 1;
             });
-            
-            const costPerHour = totalHours > 0 ? project.budget / totalHours : 0;
-            const timeVariance = project.estimatedHours != null ? totalHours - project.estimatedHours : null;
-            const workProgressPercentage = (project.estimatedHours && totalHours > 0) ? Math.min(100, (totalHours / project.estimatedHours) * 100) : 0;
-            
+
             evaluation[project.id] = {
                 ...project,
-                totalTime,
+                totalTime: lifetimeTotalTime,
                 uniqueUsers,
-                sessions: projectSessions.length,
-                averageSession: projectSessions.length > 0 ? totalTime / projectSessions.length : 0,
+                sessions: allProjectSessions.length,
+                averageSession: allProjectSessions.length > 0 ? lifetimeTotalTime / allProjectSessions.length : 0,
                 userBreakdown,
-                allSessions: projectSessions.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
+                allSessions: allProjectSessions.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
                 costPerHour,
                 workProgressPercentage,
                 timeVariance,

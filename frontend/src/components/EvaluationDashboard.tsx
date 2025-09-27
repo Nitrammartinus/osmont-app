@@ -41,6 +41,9 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
         link.click();
     };
 
+    // Use data for the period for display of sessions
+    const periodData = projectData;
+
     return (
         <div className="max-w-4xl mx-auto space-y-6">
             <button onClick={onBack} className="flex items-center text-sm text-blue-600 hover:underline mb-4">
@@ -52,9 +55,9 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">{projectData.name}</h2>
                 <p className="text-gray-500 mb-4">Deadline: {new Date(projectData.deadline).toLocaleDateString()}</p>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                    <InfoCard icon={<Clock />} label="Čas (v období)" value={formatDuration(projectData.totalTime)} />
-                    <InfoCard icon={<Users />} label="Členovia tímu" value={projectData.uniqueUsers.toString()} />
-                    <InfoCard icon={<Calendar />} label="Relácie (v období)" value={projectData.sessions.toString()} />
+                    <InfoCard icon={<Clock />} label="Čas (v období)" value={formatDuration(periodData.totalTime)} />
+                    <InfoCard icon={<Users />} label="Členovia (v období)" value={periodData.uniqueUsers.toString()} />
+                    <InfoCard icon={<Calendar />} label="Relácie (v období)" value={periodData.sessions.toString()} />
                     <InfoCard icon={<DollarSign />} label="Náklady / Hod" value={`$${projectData.costPerHour.toFixed(2)}`} />
                     <InfoCard icon={<Target />} label="Priebeh (podľa hodín)" value={`${projectData.workProgressPercentage.toFixed(0)}%`} />
                     <InfoCard icon={<ArrowLeftRight />} label="Časová odchýlka" value={<TimeVariance variance={projectData.timeVariance} />} />
@@ -66,9 +69,9 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
 
             <div className="bg-white rounded-2xl shadow-xl p-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Rozdelenie času podľa používateľov (v období)</h3>
-                {Object.values(projectData.userBreakdown).length > 0 ? (
+                {Object.values(periodData.userBreakdown).length > 0 ? (
                     <div className="space-y-3">
-                        {Object.values(projectData.userBreakdown).map((userData: UserBreakdown) => (
+                        {Object.values(periodData.userBreakdown).map((userData: UserBreakdown) => (
                             <div key={userData.name} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
                                 <p className="font-medium text-gray-800">{userData.name}</p>
                                 <div className="text-right">
@@ -84,15 +87,15 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
             <div className="bg-white rounded-2xl shadow-xl p-6">
                  <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-800">Všetky relácie (v období)</h3>
-                    {projectData.allSessions.length > 0 &&
+                    {periodData.allSessions.length > 0 &&
                         <button onClick={exportProjectSessionsToCSV} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm flex items-center">
                             <Download className="w-4 h-4 mr-1" /> Exportovať
                         </button>
                     }
                  </div>
-                 {projectData.allSessions.length > 0 ? (
+                 {periodData.allSessions.length > 0 ? (
                     <div className="space-y-2 max-h-96 overflow-y-auto">
-                        {projectData.allSessions.map((session: CompletedSession) => (
+                        {periodData.allSessions.map((session: CompletedSession) => (
                             <div key={session.id} className="bg-gray-50 p-2 rounded-lg text-sm flex justify-between">
                                 <span>{session.employee_name} dňa {new Date(session.timestamp).toLocaleDateString()}</span>
                                 <span className="font-semibold">{session.duration_formatted}</span>
@@ -134,48 +137,46 @@ const EvaluationDashboard: React.FC = () => {
         });
     }, [completedSessions, startDate, endDate]);
     
-    const filteredEvaluationData = useMemo(() => {
+    const filteredEvaluationData = useMemo((): ProjectEvaluationData[] => {
         const evaluationSource: ProjectEvaluationData[] = Object.values(projectEvaluation);
-        if (!startDate && !endDate) {
-            return evaluationSource;
-        }
 
-        const start = startDate ? new Date(startDate).getTime() : 0;
-        const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : Date.now();
-
-        const filteredData: ProjectEvaluationData[] = [];
-
-        for (const project of evaluationSource) {
-            const filteredSessions = project.allSessions.filter((session: CompletedSession) => {
+        const filteredData = evaluationSource.map((project: ProjectEvaluationData) => {
+            const sessionsInPeriod = project.allSessions.filter((session: CompletedSession) => {
+                 if (!startDate && !endDate) return true;
+                const start = startDate ? new Date(startDate).getTime() : 0;
+                const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : Date.now();
                 const sessionDate = new Date(session.timestamp).getTime();
                 return sessionDate >= start && sessionDate <= end;
             });
             
-            if (filteredSessions.length > 0) {
-                const totalTime = filteredSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
-                const uniqueUsers = [...new Set(filteredSessions.map(s => s.employee_id))].length;
+            const totalTimeInPeriod = sessionsInPeriod.reduce((sum, s) => sum + s.duration_minutes, 0);
+            const uniqueUsersInPeriod = [...new Set(sessionsInPeriod.map(s => s.employee_id))].length;
+            const userBreakdownInPeriod: Record<string, UserBreakdown> = {};
+            sessionsInPeriod.forEach(session => {
+                if (!userBreakdownInPeriod[session.employee_id]) {
+                    userBreakdownInPeriod[session.employee_id] = { name: session.employee_name, totalTime: 0, sessions: 0 };
+                }
+                userBreakdownInPeriod[session.employee_id].totalTime += session.duration_minutes;
+                userBreakdownInPeriod[session.employee_id].sessions += 1;
+            });
+            
+            return {
+                ...project, // Keep lifetime metrics like cost, variance, progress
+                totalTime: totalTimeInPeriod,
+                uniqueUsers: uniqueUsersInPeriod,
+                sessions: sessionsInPeriod.length,
+                averageSession: sessionsInPeriod.length > 0 ? totalTimeInPeriod / sessionsInPeriod.length : 0,
+                userBreakdown: userBreakdownInPeriod,
+                allSessions: sessionsInPeriod,
+            };
+        });
 
-                const userBreakdown: Record<string, UserBreakdown> = {};
-                filteredSessions.forEach(session => {
-                    if (!userBreakdown[session.employee_id]) {
-                        userBreakdown[session.employee_id] = { name: session.employee_name, totalTime: 0, sessions: 0 };
-                    }
-                    userBreakdown[session.employee_id].totalTime += session.duration_minutes;
-                    userBreakdown[session.employee_id].sessions += 1;
-                });
-
-                filteredData.push({
-                    ...project,
-                    totalTime: totalTime,
-                    uniqueUsers: uniqueUsers,
-                    sessions: filteredSessions.length,
-                    averageSession: filteredSessions.length > 0 ? totalTime / filteredSessions.length : 0,
-                    userBreakdown: userBreakdown,
-                    allSessions: filteredSessions,
-                });
-            }
+        // Only show projects that have sessions in the selected period
+        if(startDate || endDate) {
+            return filteredData.filter(p => p.sessions > 0);
         }
         return filteredData;
+
     }, [projectEvaluation, startDate, endDate]);
 
     const totalTrackedTime = filteredCompletedSessions.reduce((sum, s) => sum + s.duration_minutes, 0);

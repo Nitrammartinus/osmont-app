@@ -20,9 +20,9 @@ const seedDatabase = async (client) => {
     console.log('Users seeded successfully.');
 
     const projects = [
-      { id: 'proj001', name: 'Website Redesign', budget: 15000, deadline: '2024-12-15', closed: false, estimatedHours: 200 },
-      { id: 'proj002', name: 'Mobile App Development', budget: 25000, deadline: '2024-11-30', closed: false, estimatedHours: 400 },
-      { id: 'proj003', name: 'Marketing Campaign', budget: 8000, deadline: '2024-10-20', closed: true, estimatedHours: 80 },
+      { id: 'proj001', name: 'Website Redesign', budget: 15000, deadline: '2025-12-15', closed: false, estimatedHours: 200 },
+      { id: 'proj002', name: 'Mobile App Development', budget: 25000, deadline: '2025-11-30', closed: false, estimatedHours: 400 },
+      { id: 'proj003', name: 'Marketing Campaign', budget: 8000, deadline: '2025-10-20', closed: true, estimatedHours: 80 },
     ];
     
     for (const project of projects) {
