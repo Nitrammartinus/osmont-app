@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-// FIX: Added CompletedSession to imports.
 import { ProjectEvaluationData, UserBreakdown, CompletedSession } from '../types';
 import { ChevronLeft, Clock, Users, Calendar, DollarSign, Download, BarChart3, TrendingUp, ArrowLeftRight } from './Icons';
 
@@ -27,15 +26,22 @@ const TimeVariance: React.FC<{ variance: number | null }> = ({ variance }) => {
 
 const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack: () => void; }> = ({ projectData, onBack }) => {
     const exportProjectSessionsToCSV = () => {
-        const headers = ['Date', 'Time', 'Employee', 'Duration (formatted)'];
+        const headers = ['Dátum', 'Čas', 'Zamestnanec', 'Trvanie (formátované)', 'Trvanie (minúty)'];
         const csvContent = [
-            headers.join(','),
-            ...projectData.allSessions.map(session =>
-                `"${new Date(session.timestamp).toLocaleDateString('sk-SK')}","${new Date(session.timestamp).toLocaleTimeString('sk-SK')}","${session.employee_name}","${session.duration_formatted}"`
-            )
+            headers.join(';'),
+            ...projectData.allSessions.map(session => {
+                const row = [
+                    `"${new Date(session.timestamp).toLocaleDateString('sk-SK')}"`,
+                    `"${new Date(session.timestamp).toLocaleTimeString('sk-SK')}"`,
+                    `"${session.employee_name}"`,
+                    `"${session.duration_formatted}"`,
+                    session.duration_minutes
+                ];
+                return row.join(';');
+            })
         ].join('\n');
         
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = `projekt_${projectData.name.replace(/\s+/g, '_')}_relacie.csv`;
@@ -128,7 +134,7 @@ const EvaluationDashboard: React.FC = () => {
         const filteredData: ProjectEvaluationData[] = [];
 
         for (const project of evaluationSource) {
-            const filteredSessions = project.allSessions.filter(session => {
+            const filteredSessions = project.allSessions.filter((session: CompletedSession) => {
                 const sessionDate = new Date(session.timestamp).getTime();
                 return sessionDate >= start && sessionDate <= end;
             });
@@ -147,7 +153,7 @@ const EvaluationDashboard: React.FC = () => {
                 });
 
                 filteredData.push({
-                    ...project, // Keep original lifetime metrics
+                    ...project,
                     totalTime: totalTime,
                     uniqueUsers: uniqueUsers,
                     sessions: filteredSessions.length,
@@ -160,7 +166,6 @@ const EvaluationDashboard: React.FC = () => {
         return filteredData;
     }, [projectEvaluation, startDate, endDate]);
 
-    // FIX: Refactored to get a list of filtered sessions for the export function, then calculate total time from that list.
     const filteredCompletedSessions = useMemo(() => {
         if (!startDate && !endDate) {
             return completedSessions;
@@ -168,7 +173,7 @@ const EvaluationDashboard: React.FC = () => {
         const start = startDate ? new Date(startDate).getTime() : 0;
         const end = endDate ? new Date(endDate).getTime() + (24 * 60 * 60 * 1000 - 1) : Date.now();
         
-        return completedSessions.filter(session => {
+        return completedSessions.filter((session: CompletedSession) => {
             const sessionDate = new Date(session.timestamp).getTime();
             return sessionDate >= start && sessionDate <= end;
         });
@@ -179,7 +184,7 @@ const EvaluationDashboard: React.FC = () => {
     }, [filteredCompletedSessions]);
 
     if (selectedProject) {
-        const updatedProjectData = filteredEvaluationData.find(p => p.id === selectedProject.id);
+        const updatedProjectData = filteredEvaluationData.find((p: ProjectEvaluationData) => p.id === selectedProject.id);
         if(updatedProjectData) {
             return <ProjectDetailsView projectData={updatedProjectData} onBack={() => setSelectedProject(null)} />;
         }
@@ -194,7 +199,6 @@ const EvaluationDashboard: React.FC = () => {
                         <h2 className="text-xl font-bold text-gray-800">Celkový Súhrn</h2>
                         <p className="text-gray-600">Celkový sledovaný čas v období: {formatDuration(totalTrackedTime)}</p>
                     </div>
-                    {/* FIX: Passed the filtered sessions to the export function to fix type error. */}
                     <button onClick={() => exportToExcel(filteredCompletedSessions)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm flex items-center mt-4 sm:mt-0">
                         <Download className="w-4 h-4 mr-2" /> Exportovať Všetky Dáta
                     </button>

@@ -1,7 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-import { User, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
+// FIX: Aliased User icon import to avoid name collision with User type.
+import { User as UserIcon, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
 import QRCodeScanner from './QRCodeScanner';
+// FIX: Imported User type.
+import { User } from '../types';
 
 const Login: React.FC = () => {
     const { handleManualLogin, processQRCode } = useTimeTracker();
@@ -138,7 +141,7 @@ const ActiveSessions: React.FC = () => {
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <div className="flex items-center mb-1">
-                                            <User className="w-4 h-4 text-gray-600 mr-2" />
+                                            <UserIcon className="w-4 h-4 text-gray-600 mr-2" />
                                             <p className="font-medium text-gray-800">{session.userName}</p>
                                         </div>
                                         <p className="text-sm text-gray-700 font-medium">{session.projectName}</p>
@@ -164,7 +167,7 @@ const ActiveSessions: React.FC = () => {
 };
 
 const MainTrackingView: React.FC = () => {
-    const { currentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
+    const { currentUser, setCurrentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
     const userHasActiveSession = activeSessions.some(s => s.userId === currentUser?.id);
 
     const sessionToStop = useMemo(() => {
@@ -172,14 +175,18 @@ const MainTrackingView: React.FC = () => {
         return activeSessions.find(s => s.userId === userForStopConfirmation.id);
     }, [userForStopConfirmation, activeSessions]);
 
-    const handleStopSession = () => {
+    const handleStopSession = async () => {
         if (userForStopConfirmation) {
-            stopSessionForUser(userForStopConfirmation);
+            await stopSessionForUser(userForStopConfirmation);
         }
         setUserForStopConfirmation(null);
+        setCurrentUser(null);
     };
 
     const handleCancelStop = () => {
+        if (userForStopConfirmation && (userForStopConfirmation.role === 'admin' || userForStopConfirmation.role === 'manager')) {
+            setCurrentUser(userForStopConfirmation);
+        }
         setUserForStopConfirmation(null);
     };
 
