@@ -1,3 +1,4 @@
+
 export type UserRole = 'employee' | 'manager' | 'admin';
 export type View = 'tracking' | 'evaluation' | 'userManagement' | 'projectManagement';
 
@@ -12,7 +13,7 @@ export interface User {
 
 export interface Project {
   id: string;
-  name: string;
+  name:string;
   budget: number;
   deadline: string;
   closed: boolean;
@@ -25,11 +26,11 @@ export interface ActiveSession {
   userName: string;
   projectId: string;
   projectName: string;
-  startTime: string; // Comes from DB as ISO string
+  startTime: number;
+  project: Project;
 }
 
 export interface CompletedSession {
-  id: number;
   timestamp: string;
   employee_id: string;
   employee_name: string;
@@ -39,6 +40,13 @@ export interface CompletedSession {
   duration_formatted: string;
 }
 
+export interface QRCodeData {
+  type: 'user' | 'project';
+  id: string;
+  name: string;
+  content: string;
+}
+
 export interface UserBreakdown {
     name: string;
     totalTime: number;
@@ -46,13 +54,13 @@ export interface UserBreakdown {
 }
 
 export interface ProjectEvaluationData extends Project {
-    totalTime: number; // in period
-    uniqueUsers: number; // in period
-    sessions: number; // in period
-    averageSession: number; // in period
-    userBreakdown: Record<string, UserBreakdown>; // in period
-    allSessions: CompletedSession[]; // in period
-    costPerHour: number; // lifetime
-    workProgressPercentage: number; // lifetime
-    timeVariance: number | null; // lifetime
+    totalTime: number;
+    uniqueUsers: number;
+    sessions: number;
+    averageSession: number;
+    userBreakdown: Record<string, UserBreakdown>;
+    allSessions: CompletedSession[];
+    costPerHour: number;
+    progressTowardsDeadline: number;
+    timeVariance: number | null;
 }

@@ -5,19 +5,10 @@ import MainTrackingView from './components/MainTrackingView';
 import UserManagement from './components/UserManagement';
 import ProjectManagement from './components/ProjectManagement';
 import EvaluationDashboard from './components/EvaluationDashboard';
-import { Shield, Clock } from './components/Icons';
+import { Shield } from './components/Icons';
 
 const AppContent: React.FC = () => {
-    const { currentView, isAdmin, isManager, canAccessEvaluation, isLoading } = useTimeTracker();
-
-    if (isLoading) {
-        return (
-            <div className="flex flex-col items-center justify-center h-screen bg-gray-50 text-gray-600">
-                <Clock className="w-12 h-12 animate-spin text-blue-500 mb-4" />
-                <p className="text-lg">Načítavajú sa dáta zo servera...</p>
-            </div>
-        );
-    }
+    const { currentView, canAccessEvaluation, isAdmin, isManager } = useTimeTracker();
 
     const renderView = () => {
         switch (currentView) {
@@ -50,13 +41,13 @@ const AccessDeniedView: React.FC = () => {
         <div className="flex items-center justify-center h-full">
             <div className="bg-white rounded-2xl shadow-xl p-8 text-center max-w-md w-full">
                 <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">Prístup zamietnutý</h2>
-                <p className="text-gray-600 mb-6">Nemáte oprávnenie na zobrazenie tejto stránky.</p>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Access Denied</h2>
+                <p className="text-gray-600 mb-6">You do not have permission to view this page.</p>
                 <button
                     onClick={() => setCurrentView('tracking')}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200"
                 >
-                    Späť na sledovanie
+                    Back to Tracking
                 </button>
             </div>
         </div>

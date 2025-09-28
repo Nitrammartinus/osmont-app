@@ -1,0 +1,1 @@
+full contents of frontend/src/components/CostCenterManagement.tsx
