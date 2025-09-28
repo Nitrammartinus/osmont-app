@@ -30,7 +30,7 @@ interface TimeTrackerContextType {
     processQRCode: (qrText: string) => Promise<{ success: boolean; message: string; }>;
     handleManualLogin: (username: string, password: string) => Promise<boolean>;
     stopSessionForUser: (user: User) => Promise<void>;
-    exportToExcel: () => void;
+    exportToExcel: (sessionsToExport: CompletedSession[]) => void;
     // CRUD functions
     addUser: (user: Partial<User>) => Promise<void>;
     updateUser: (user: User) => Promise<void>;
@@ -97,10 +97,24 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             if (showLoading) setIsLoading(false);
         }
     }, []);
-
+    
+     // Initial fetch
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // Polling for active sessions
+    useEffect(() => {
+        const pollInterval = setInterval(() => {
+            fetch(`${API_URL}/active-sessions`)
+                .then(res => res.json())
+                .then(data => setActiveSessions(data))
+                .catch(err => console.error("Polling for active sessions failed:", err));
+        }, 5000); // Poll every 5 seconds
+
+        return () => clearInterval(pollInterval);
+    }, []);
+
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -188,8 +202,9 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
 
     const processQRCode = async (qrText: string): Promise<{ success: boolean; message: string; }> => {
-        if (qrText.startsWith('USER_ID:')) {
-            const userId = qrText.substring('USER_ID:'.length);
+        const trimmedText = qrText.trim();
+        if (trimmedText.startsWith('USER_ID:')) {
+            const userId = trimmedText.substring('USER_ID:'.length);
             const user = users.find(u => u.id === userId);
             if (user) {
                  if (user.blocked) {
@@ -206,7 +221,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             } else {
                 return { success: false, message: 'Neplatný alebo blokovaný QR kód používateľa.' };
             }
-        } else if (qrText.startsWith('PROJECT_ID:')) {
+        } else if (trimmedText.startsWith('PROJECT_ID:')) {
             if (!currentUser) {
                 return { success: false, message: 'Prosím, prihláste sa pred skenovaním projektu.' };
             }
@@ -214,7 +229,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             if (existingUserSession) {
                 return { success: false, message: 'Už máte aktívnu reláciu. Prosím, overte sa znova, aby ste ju zastavili.' };
             }
-            const projectId = qrText.substring('PROJECT_ID:'.length);
+            const projectId = trimmedText.substring('PROJECT_ID:'.length);
             const project = projects.find(p => p.id === projectId);
 
             if (project) {
@@ -246,22 +261,28 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
     };
     
-    const exportToExcel = useCallback(() => {
-        if (completedSessions.length === 0) {
+    const exportToExcel = useCallback((sessionsToExport: CompletedSession[]) => {
+        if (sessionsToExport.length === 0) {
             alert('Žiadne dokončené relácie na export!');
             return;
         }
-        const headers = ['Timestamp', 'Employee ID', 'Employee Name', 'Project ID', 'Project Name', 'Duration (minutes)'];
+        const headers = ['Dátum', 'Čas', 'ID Zamestnanca', 'Meno Zamestnanca', 'ID Projektu', 'Názov Projektu', 'Trvanie (minúty)'];
         const csvContent = [
-            headers.join(','),
-            ...completedSessions.map(s => `"${s.timestamp}","${s.employee_id}","${s.employee_name}","${s.project_id}","${s.project_name}",${s.duration_minutes}`)
+            headers.join(';'),
+            ...sessionsToExport.map(s => {
+                const date = new Date(s.timestamp);
+                const formattedDate = date.toLocaleDateString('sk-SK');
+                const formattedTime = date.toLocaleTimeString('sk-SK');
+                return `"${formattedDate}";"${formattedTime}";"${s.employee_id}";"${s.employee_name}";"${s.project_id}";"${s.project_name}";${s.duration_minutes}`
+            })
         ].join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = `time_tracking_export_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
-    }, [completedSessions]);
+    }, []);
     
     const getProjectEvaluation = useCallback((): Record<string, ProjectEvaluationData> => {
         const evaluation: Record<string, ProjectEvaluationData> = {};
@@ -289,15 +310,15 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
             evaluation[project.id] = {
                 ...project,
-                totalTime,
-                uniqueUsers,
-                sessions: projectSessions.length,
-                averageSession: projectSessions.length > 0 ? totalTime / projectSessions.length : 0,
-                userBreakdown,
+                totalTime: 0, // Will be calculated based on date filter in component
+                uniqueUsers: 0, // Will be calculated based on date filter in component
+                sessions: 0, // Will be calculated based on date filter in component
+                averageSession: 0, // Will be calculated based on date filter in component
+                userBreakdown: {}, // Will be calculated based on date filter in component
                 allSessions: projectSessions.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
-                costPerHour,
-                workProgressPercentage,
-                timeVariance,
+                costPerHour, // Lifetime metric
+                workProgressPercentage, // Lifetime metric
+                timeVariance, // Lifetime metric
             };
         });
         return evaluation;
