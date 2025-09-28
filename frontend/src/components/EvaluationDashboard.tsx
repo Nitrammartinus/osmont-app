@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-import { ProjectEvaluationData, UserBreakdown } from '../types';
+// FIX: Added CompletedSession to imports.
+import { ProjectEvaluationData, UserBreakdown, CompletedSession } from '../types';
 import { ChevronLeft, Clock, Users, Calendar, DollarSign, Download, BarChart3, TrendingUp, ArrowLeftRight } from './Icons';
 
 const formatDuration = (minutes: number) => {
@@ -159,9 +160,10 @@ const EvaluationDashboard: React.FC = () => {
         return filteredData;
     }, [projectEvaluation, startDate, endDate]);
 
-    const totalTrackedTime = useMemo(() => {
+    // FIX: Refactored to get a list of filtered sessions for the export function, then calculate total time from that list.
+    const filteredCompletedSessions = useMemo(() => {
         if (!startDate && !endDate) {
-            return completedSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
+            return completedSessions;
         }
         const start = startDate ? new Date(startDate).getTime() : 0;
         const end = endDate ? new Date(endDate).getTime() + (24 * 60 * 60 * 1000 - 1) : Date.now();
@@ -169,8 +171,12 @@ const EvaluationDashboard: React.FC = () => {
         return completedSessions.filter(session => {
             const sessionDate = new Date(session.timestamp).getTime();
             return sessionDate >= start && sessionDate <= end;
-        }).reduce((sum, s) => sum + s.duration_minutes, 0);
+        });
     }, [completedSessions, startDate, endDate]);
+
+    const totalTrackedTime = useMemo(() => {
+        return filteredCompletedSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
+    }, [filteredCompletedSessions]);
 
     if (selectedProject) {
         const updatedProjectData = filteredEvaluationData.find(p => p.id === selectedProject.id);
@@ -188,7 +194,8 @@ const EvaluationDashboard: React.FC = () => {
                         <h2 className="text-xl font-bold text-gray-800">Celkový Súhrn</h2>
                         <p className="text-gray-600">Celkový sledovaný čas v období: {formatDuration(totalTrackedTime)}</p>
                     </div>
-                    <button onClick={exportToExcel} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm flex items-center mt-4 sm:mt-0">
+                    {/* FIX: Passed the filtered sessions to the export function to fix type error. */}
+                    <button onClick={() => exportToExcel(filteredCompletedSessions)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm flex items-center mt-4 sm:mt-0">
                         <Download className="w-4 h-4 mr-2" /> Exportovať Všetky Dáta
                     </button>
                 </div>

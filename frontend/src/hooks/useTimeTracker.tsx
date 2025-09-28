@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useContext, createContext, useCallback, useMemo } from 'react';
-import { User, Project, ActiveSession, CompletedSession, View, ProjectEvaluationData, UserRole } from '../types';
+// FIX: Added UserBreakdown to imports to resolve type error.
+import { User, Project, ActiveSession, CompletedSession, View, ProjectEvaluationData, UserBreakdown } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000';
+const API_URL = import.meta.env.VITE_API_URL;
 
 const formatDuration = (minutes: number) => {
     if (isNaN(minutes)) return '0h 0m';
@@ -36,8 +37,7 @@ interface TimeTrackerContextType {
     addProject: (project: Partial<Project>) => Promise<void>;
     updateProject: (project: Project) => Promise<void>;
     deleteProject: (projectId: string) => Promise<void>;
-    exportToExcel: () => void;
-    startSession: (projectId: string) => Promise<void>;
+    exportToExcel: (sessionsToExport: CompletedSession[]) => void;
 }
 
 const TimeTrackerContext = createContext<TimeTrackerContextType | undefined>(undefined);
@@ -61,14 +61,14 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [isLoading, setIsLoading] = useState(true);
     const [userForStopConfirmation, setUserForStopConfirmation] = useState<User | null>(null);
 
-    const fetchData = useCallback(async () => {
-        setIsLoading(true);
+    const fetchData = useCallback(async (isInitial = false) => {
+        if (isInitial) setIsLoading(true);
         try {
             const [usersRes, projectsRes, activeSessionsRes, completedSessionsRes] = await Promise.all([
-                fetch(`${API_URL}/api/users`),
-                fetch(`${API_URL}/api/projects`),
-                fetch(`${API_URL}/api/active-sessions`),
-                fetch(`${API_URL}/api/sessions/completed`),
+                fetch(`${API_URL}/users`),
+                fetch(`${API_URL}/projects`),
+                fetch(`${API_URL}/active-sessions`),
+                fetch(`${API_URL}/sessions/completed`),
             ]);
             
             if (!usersRes.ok || !projectsRes.ok || !activeSessionsRes.ok || !completedSessionsRes.ok) {
@@ -87,18 +87,20 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             
         } catch (error) {
             console.error("Failed to fetch data:", error);
-            alert("Nepodarilo sa načítať dáta zo servera. Skúste obnoviť stránku.");
+            if (isInitial) alert("Nepodarilo sa načítať dáta zo servera. Skúste obnoviť stránku.");
         } finally {
-            setIsLoading(false);
+            if (isInitial) setIsLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchData();
+        fetchData(true); // Initial fetch with loading screen
+        const pollInterval = setInterval(() => fetchData(false), 5000); // Poll every 5 seconds without loading screen
+        return () => clearInterval(pollInterval);
     }, [fetchData]);
 
     useEffect(() => {
-        const interval = setInterval(() => {
+        const timerInterval = setInterval(() => {
             const now = Date.now();
             const updatedTimers: Record<number, number> = {};
             activeSessions.forEach(session => {
@@ -106,12 +108,12 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             });
             setSessionTimers(updatedTimers);
         }, 1000);
-        return () => clearInterval(interval);
+        return () => clearInterval(timerInterval);
     }, [activeSessions]);
 
     const handleManualLogin = useCallback(async (username:string, password:string): Promise<boolean> => {
         try {
-            const response = await fetch(`${API_URL}/api/login`, {
+            const response = await fetch(`${API_URL}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -123,6 +125,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             }
             const user: User = await response.json();
             const existingSession = activeSessions.find(session => session.userId === user.id);
+            
             if (existingSession) {
                 setUserForStopConfirmation(user);
             } else {
@@ -138,63 +141,19 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const stopSessionForUser = useCallback(async (user: User) => {
         try {
-            const response = await fetch(`${API_URL}/api/active-sessions/user/${user.id}`, { method: 'DELETE' });
+            const response = await fetch(`${API_URL}/active-sessions/user/${user.id}`, { method: 'DELETE' });
             if (!response.ok) throw new Error('Failed to stop session');
-            await fetchData(); // Refetch all data to get updated state
+            await fetchData();
         } catch (error) {
             console.error('Error stopping session', error);
             alert('Nepodarilo sa zastaviť reláciu.');
         }
     }, [fetchData]);
 
-    const processQRCode = useCallback(async (qrText: string): Promise<{ success: boolean; message: string; }> => {
-        if (qrText.startsWith('USER_ID:')) {
-            const userId = qrText.substring('USER_ID:'.length);
-            const user = users.find(u => u.id === userId && !u.blocked);
-            if (user) {
-                if (user.role !== 'employee') {
-                    return { success: false, message: 'Iba zamestnanci môžu začať relácie sledovania cez QR kód.' };
-                }
-                const existingSession = activeSessions.find(session => session.userId === user.id);
-                if (existingSession) {
-                    setUserForStopConfirmation(user);
-                    return { success: true, message: `Nájdená aktívna relácia pre ${user.name}.` };
-                } else {
-                    setCurrentUser(user);
-                    return { success: true, message: `Prihlásený ako ${user.name}.` };
-                }
-            } else {
-                return { success: false, message: 'Neplatný alebo zablokovaný QR kód používateľa.' };
-            }
-        } else if (qrText.startsWith('PROJECT_ID:')) {
-            if (!currentUser || currentUser.role !== 'employee') {
-                return { success: false, message: 'Prosím, prihláste sa ako zamestnanec pred skenovaním projektu.' };
-            }
-            const existingUserSession = activeSessions.find(session => session.userId === currentUser.id);
-            if (existingUserSession) {
-                return { success: false, message: 'Už máte aktívnu reláciu. Prosím, overte sa znova, aby ste ju zastavili.' };
-            }
-            const projectId = qrText.substring('PROJECT_ID:'.length);
-            const project = projects.find(p => p.id === projectId && !p.closed);
-            if (project) {
-                try {
-                    await startSession(projectId);
-                    return { success: true, message: `Relácia pre ${project.name} bola spustená.` };
-                } catch (error) {
-                    return { success: false, message: `Nepodarilo sa spustiť reláciu.` };
-                }
-            } else {
-                return { success: false, message: 'Neplatný alebo uzavretý QR kód projektu.' };
-            }
-        } else {
-            return { success: false, message: 'Nerozpoznaný formát QR kódu.' };
-        }
-    }, [users, currentUser, projects, activeSessions]);
-    
     const startSession = async (projectId: string) => {
         if (!currentUser) throw new Error("No user logged in");
         try {
-            const response = await fetch(`${API_URL}/api/active-sessions`, {
+            const response = await fetch(`${API_URL}/active-sessions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId: currentUser.id, projectId })
@@ -209,9 +168,62 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
     };
 
+    const processQRCode = useCallback(async (qrText: string): Promise<{ success: boolean; message: string; }> => {
+        const trimmedText = qrText.trim();
+        if (trimmedText.startsWith('USER_ID:')) {
+            const userId = trimmedText.substring('USER_ID:'.length);
+            const user = users.find(u => u.id === userId);
+
+            if (!user) {
+                return { success: false, message: 'Neplatný QR kód používateľa.' };
+            }
+            if (user.blocked) {
+                return { success: false, message: 'Tento používateľ je zablokovaný.' };
+            }
+            
+            const existingSession = activeSessions.find(session => session.userId === user.id);
+            if (existingSession) {
+                setUserForStopConfirmation(user);
+                return { success: true, message: `Nájdená aktívna relácia pre ${user.name}.` };
+            } else {
+                setCurrentUser(user);
+                return { success: true, message: `Prihlásený ako ${user.name}.` };
+            }
+
+        } else if (trimmedText.startsWith('PROJECT_ID:')) {
+            if (!currentUser) {
+                return { success: false, message: 'Prosím, prihláste sa pred skenovaním projektu.' };
+            }
+
+            const existingUserSession = activeSessions.find(session => session.userId === currentUser.id);
+            if (existingUserSession) {
+                return { success: false, message: 'Už máte aktívnu reláciu. Prosím, overte sa znova, aby ste ju zastavili.' };
+            }
+
+            const projectId = trimmedText.substring('PROJECT_ID:'.length);
+            const project = projects.find(p => p.id === projectId);
+
+            if (!project) {
+                 return { success: false, message: 'Neplatný QR kód projektu.' };
+            }
+            if (project.closed) {
+                return { success: false, message: 'Projekt je uzatvorený a nie je možné preň spustiť novú reláciu.' };
+            }
+
+            try {
+                await startSession(projectId);
+                return { success: true, message: `Relácia pre ${project.name} bola spustená.` };
+            } catch (error) {
+                return { success: false, message: `Nepodarilo sa spustiť reláciu.` };
+            }
+        } else {
+            return { success: false, message: 'Nerozpoznaný formát QR kódu.' };
+        }
+    }, [users, currentUser, projects, activeSessions, startSession]);
+
     const addUser = async (user: Partial<User>) => {
         try {
-            const response = await fetch(`${API_URL}/api/users`, {
+            const response = await fetch(`${API_URL}/users`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(user)
@@ -226,7 +238,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const updateUser = async (user: User) => {
         try {
-            const response = await fetch(`${API_URL}/api/users/${user.id}`, {
+            const response = await fetch(`${API_URL}/users/${user.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(user)
@@ -241,7 +253,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     const deleteUser = async (userId: string) => {
         try {
-            const response = await fetch(`${API_URL}/api/users/${userId}`, { method: 'DELETE' });
+            const response = await fetch(`${API_URL}/users/${userId}`, { method: 'DELETE' });
             if (!response.ok) throw new Error('Failed to delete user');
             await fetchData();
         } catch (error) {
@@ -252,7 +264,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const addProject = async (project: Partial<Project>) => {
         try {
-            const response = await fetch(`${API_URL}/api/projects`, {
+            const response = await fetch(`${API_URL}/projects`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(project)
@@ -267,7 +279,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const updateProject = async (project: Project) => {
         try {
-            const response = await fetch(`${API_URL}/api/projects/${project.id}`, {
+            const response = await fetch(`${API_URL}/projects/${project.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(project)
@@ -282,7 +294,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const deleteProject = async (projectId: string) => {
         try {
-            const response = await fetch(`${API_URL}/api/projects/${projectId}`, { method: 'DELETE' });
+            const response = await fetch(`${API_URL}/projects/${projectId}`, { method: 'DELETE' });
             if (!response.ok) throw new Error('Failed to delete project');
             await fetchData();
         } catch (error) {
@@ -291,22 +303,36 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
     };
 
-    const exportToExcel = useCallback(() => {
-        if (completedSessions.length === 0) {
-            alert('Žiadne dokončené relácie na export!');
+    const exportToExcel = useCallback((sessionsToExport: CompletedSession[]) => {
+        if (sessionsToExport.length === 0) {
+            alert('Žiadne relácie na export!');
             return;
         }
-        const headers = ['Timestamp', 'Employee ID', 'Employee Name', 'Project ID', 'Project Name', 'Duration (minutes)'];
+        const headers = ['Dátum', 'Čas', 'ID Zamestnanca', 'Meno Zamestnanca', 'ID Projektu', 'Názov Projektu', 'Trvanie (minúty)', 'Trvanie (formátované)'];
         const csvContent = [
-            headers.join(','),
-            ...completedSessions.map(s => `"${s.timestamp}","${s.employee_id}","${s.employee_name}","${s.project_id}","${s.project_name}",${s.duration_minutes}`)
+            headers.join(';'),
+            ...sessionsToExport.map(s => {
+                const date = new Date(s.timestamp);
+                const row = [
+                    date.toLocaleDateString('sk-SK'),
+                    date.toLocaleTimeString('sk-SK'),
+                    `"${s.employee_id}"`,
+                    `"${s.employee_name}"`,
+                    `"${s.project_id}"`,
+                    `"${s.project_name}"`,
+                    s.duration_minutes,
+                    `"${s.duration_formatted}"`
+                ];
+                return row.join(';');
+            })
         ].join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `time_tracking_export_${new Date().toISOString().split('T')[0]}.csv`;
+        link.download = `report_relacii_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
-    }, [completedSessions]);
+    }, []);
     
     const getProjectEvaluation = useCallback((): Record<string, ProjectEvaluationData> => {
         const evaluation: Record<string, ProjectEvaluationData> = {};
@@ -316,7 +342,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             const totalHours = totalTime / 60;
             const uniqueUsers = [...new Set(projectSessions.map(s => s.employee_id))].length;
 
-            const userBreakdown: ProjectEvaluationData['userBreakdown'] = {};
+            const userBreakdown: Record<string, UserBreakdown> = {};
             projectSessions.forEach(session => {
                 if (!userBreakdown[session.employee_id]) {
                     userBreakdown[session.employee_id] = { name: session.employee_name, totalTime: 0, sessions: 0 };
@@ -382,7 +408,6 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         updateProject,
         deleteProject,
         exportToExcel,
-        startSession,
     };
 
     return <TimeTrackerContext.Provider value={value}>{children}</TimeTrackerContext.Provider>;
