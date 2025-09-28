@@ -1,5 +1,7 @@
-<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="192" height="192" rx="48" fill="#2563EB"/>
-<circle cx="96" cy="96" r="64" stroke="white" stroke-width="12"/>
-<path d="M96 56V96L128 112" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="36" fill="#2563EB" />
+  <g fill="none" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="96" cy="96" r="64" />
+    <polyline points="96 48 96 96 128 112" />
+  </g>
 </svg>

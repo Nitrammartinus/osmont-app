@@ -1,30 +1,32 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-import { User, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
+import { User as UserIcon, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle, Building2 } from './Icons';
 import QRCodeScanner from './QRCodeScanner';
+import { ActiveSession, CostCenter, User } from '../types';
 
 const Login: React.FC = () => {
-    const { handleManualLogin, processQRCode } = useTimeTracker();
+    const { login, processQRCode } = useTimeTracker();
     const [loginMethod, setLoginMethod] = useState<'qr' | 'manual'>('qr');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-    const onLoginSubmit = (e: React.FormEvent) => {
+    const onLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (handleManualLogin(username, password)) {
+        setIsLoggingIn(true);
+        const success = await login(username, password);
+        if (success) {
             setUsername('');
             setPassword('');
         }
+        setIsLoggingIn(false);
     };
 
-    const handleScanSuccess = (decodedText: string) => {
+    const handleScanSuccess = async (decodedText: string) => {
         setIsScanning(false);
-        const result = processQRCode(decodedText);
-        if (!result.success) {
-            alert(result.message);
-        }
+        await processQRCode(decodedText);
     };
 
     return (
@@ -39,7 +41,7 @@ const Login: React.FC = () => {
                                 onClick={() => setLoginMethod(method as 'qr' | 'manual')}
                                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${loginMethod === method ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}
                             >
-                                {method === 'qr' ? 'QR Code' : 'Manual Login'}
+                                {method === 'qr' ? 'QR Kód' : 'Manuálne'}
                             </button>
                         ))}
                     </div>
@@ -49,25 +51,27 @@ const Login: React.FC = () => {
                     <div className="text-center max-w-sm mx-auto">
                         <div className="bg-gray-100 rounded-xl p-6">
                             <QrCode className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-600 mb-4">Scan your user QR code to begin.</p>
+                            <p className="text-gray-600 mb-4">Naskenujte svoj QR kód pre prihlásenie.</p>
                             <button onClick={() => setIsScanning(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 flex items-center justify-center mx-auto">
                                 <QrCode className="w-5 h-5 mr-2" />
-                                Scan User QR
+                                Skenovať QR kód
                             </button>
                         </div>
                     </div>
                 ) : (
                     <form onSubmit={onLoginSubmit} className="space-y-4 max-w-sm mx-auto">
                         <div>
-                            <input type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required />
+                            <input type="text" placeholder="Používateľské meno" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required />
                         </div>
                         <div className="relative">
-                            <input type={showPassword ? 'text' : 'password'} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 pr-12" required />
+                            <input type={showPassword ? 'text' : 'password'} placeholder="Heslo" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 pr-12" required />
                             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                             </button>
                         </div>
-                        <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200">Login</button>
+                        <button type="submit" disabled={isLoggingIn} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 disabled:bg-blue-300 disabled:cursor-not-allowed">
+                            {isLoggingIn ? 'Prihlasujem...' : 'Prihlásiť'}
+                        </button>
                     </form>
                 )}
             </div>
@@ -77,32 +81,53 @@ const Login: React.FC = () => {
 
 
 const StartTracking: React.FC = () => {
-    const { processQRCode } = useTimeTracker();
+    const { currentUser, projects, processQRCode, startSession } = useTimeTracker();
     const [isScanning, setIsScanning] = useState(false);
+    const [selectedProject, setSelectedProject] = useState('');
 
-    const handleScanSuccess = (decodedText: string) => {
+    const userProjects = useMemo(() => {
+        if (!currentUser || !currentUser.costCenters) return [];
+        return projects.filter(p => currentUser.costCenters?.includes(p.cost_center_id) && !p.closed);
+    }, [projects, currentUser]);
+
+    const handleScanSuccess = async (decodedText: string) => {
         setIsScanning(false);
-        if (!decodedText.startsWith('PROJECT_ID:')) {
-            alert('Invalid QR code. Please scan a valid project QR code.');
+        await processQRCode(decodedText);
+    };
+
+    const handleManualStart = async () => {
+        if (!selectedProject) {
+            alert("Prosím, vyberte projekt.");
             return;
         }
-        const result = processQRCode(decodedText);
-        if (!result.success) {
-            alert(result.message);
-        }
+        await startSession(selectedProject);
     };
 
     return (
         <>
             {isScanning && <QRCodeScanner onScanSuccess={handleScanSuccess} onClose={() => setIsScanning(false)} />}
-            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6 text-center">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Start New Session</h2>
-                <div className="bg-gray-100 rounded-xl p-6">
-                    <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-4">Scan the project QR code to start tracking time.</p>
+            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4 text-center">Spustiť novú reláciu</h2>
+                
+                {currentUser?.can_select_project_manually && userProjects.length > 0 && (
+                     <div className="bg-gray-50 rounded-xl p-6 text-center mb-6">
+                         <h3 className="font-semibold text-gray-700 mb-3">Manuálny výber projektu</h3>
+                         <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)} className="w-full max-w-xs mx-auto p-2 border rounded-lg mb-3">
+                             <option value="">-- Vyberte projekt --</option>
+                             {userProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                         </select>
+                         <button onClick={handleManualStart} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-xl transition-transform transform hover:scale-105 duration-200">
+                            Spustiť
+                         </button>
+                     </div>
+                )}
+               
+                <div className="bg-gray-100 rounded-xl p-6 text-center">
+                    <QrCode className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4">Naskenujte QR kód projektu pre spustenie relácie.</p>
                     <button onClick={() => setIsScanning(true)} className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 flex items-center justify-center mx-auto">
                         <BarChart3 className="w-5 h-5 mr-2" />
-                        Scan Project QR
+                        Skenovať QR kód
                     </button>
                 </div>
             </div>
@@ -111,9 +136,23 @@ const StartTracking: React.FC = () => {
 };
 
 const ActiveSessions: React.FC = () => {
-    const { activeSessions, sessionTimers, currentUser, projects } = useTimeTracker();
+    const { activeSessions, sessionTimers, projects, costCenters, currentUser } = useTimeTracker();
+    const [selectedCenter, setSelectedCenter] = useState('');
+    
+    const userCostCenters = useMemo(() => {
+        if (currentUser?.role === 'admin') return costCenters;
+        if (!currentUser?.costCenters) return [];
+        return costCenters.filter(cc => currentUser.costCenters?.includes(cc.id));
+    }, [costCenters, currentUser]);
+
+    const filteredSessions = useMemo(() => {
+        if (!selectedCenter) return activeSessions;
+        return activeSessions.filter(s => s.cost_center_id === selectedCenter);
+    }, [activeSessions, selectedCenter]);
+
 
     const formatTime = (milliseconds: number) => {
+        if (isNaN(milliseconds)) return '00:00:00';
         const totalSeconds = Math.floor(milliseconds / 1000);
         const hours = Math.floor(totalSeconds / 3600);
         const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -123,30 +162,37 @@ const ActiveSessions: React.FC = () => {
 
     return (
         <div className="bg-white rounded-2xl shadow-xl p-6">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Active Sessions</h2>
-                <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">{activeSessions.length} active</div>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                <h2 className="text-lg font-semibold text-gray-800">Aktívne relácie</h2>
+                {userCostCenters.length > 1 && (
+                     <div className="flex items-center space-x-2">
+                         <Building2 className="w-5 h-5 text-gray-500"/>
+                         <select value={selectedCenter} onChange={e => setSelectedCenter(e.target.value)} className="p-1 border rounded-lg text-sm">
+                             <option value="">Všetky strediská</option>
+                             {userCostCenters.map(cc => <option key={cc.id} value={cc.id}>{cc.name}</option>)}
+                         </select>
+                     </div>
+                )}
+                <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">{filteredSessions.length} aktívnych</div>
             </div>
 
-            {activeSessions.length > 0 ? (
+            {filteredSessions.length > 0 ? (
                 <div className="space-y-4">
-                    {activeSessions.map(session => {
-                        const isCurrentUserSession = currentUser?.id === session.userId;
-                        const project = projects.find(p => p.id === session.projectId);
+                    {filteredSessions.map((session: ActiveSession) => {
+                        const project = projects.find(p => p.id === session.project_id);
                         return (
-                            <div key={session.id} className={`rounded-lg p-4 border-l-4 ${isCurrentUserSession ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'}`}>
+                            <div key={session.id} className="rounded-lg p-4 border-l-4 border-gray-300 bg-gray-50">
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <div className="flex items-center mb-1">
-                                            <User className="w-4 h-4 text-gray-600 mr-2" />
-                                            <p className="font-medium text-gray-800">{session.userName}</p>
+                                            <UserIcon className="w-4 h-4 text-gray-600 mr-2" />
+                                            <p className="font-medium text-gray-800">{session.user_name}</p>
                                         </div>
-                                        <p className="text-sm text-gray-700 font-medium">{session.projectName}</p>
-                                         {project?.closed && <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full mt-1 inline-block">Project Closed</span>}
+                                        <p className="text-sm text-gray-700 font-medium">{session.project_name}</p>
+                                         {project?.closed && <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full mt-1 inline-block">Projekt Uzatvorený</span>}
                                     </div>
                                     <div className="text-right ml-4">
                                         <p className="font-mono text-xl font-bold text-blue-600">{sessionTimers[session.id] ? formatTime(sessionTimers[session.id]) : '00:00:00'}</p>
-                                        {isCurrentUserSession && <div className="mt-2 text-blue-800 text-xs font-medium py-1 px-2 rounded-full bg-blue-100">Your Session</div>}
                                     </div>
                                 </div>
                             </div>
@@ -156,7 +202,7 @@ const ActiveSessions: React.FC = () => {
             ) : (
                 <div className="text-center py-8">
                     <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600">No active time tracking sessions.</p>
+                    <p className="text-gray-600">Žiadne aktívne relácie.</p>
                 </div>
             )}
         </div>
@@ -164,22 +210,26 @@ const ActiveSessions: React.FC = () => {
 };
 
 const MainTrackingView: React.FC = () => {
-    const { currentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
-    const userHasActiveSession = activeSessions.some(s => s.userId === currentUser?.id);
+    const { currentUser, setCurrentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
+    const userHasActiveSession = useMemo(() => activeSessions.some(s => s.user_id === currentUser?.id), [activeSessions, currentUser]);
 
     const sessionToStop = useMemo(() => {
         if (!userForStopConfirmation) return null;
-        return activeSessions.find(s => s.userId === userForStopConfirmation.id);
+        return activeSessions.find(s => s.user_id === userForStopConfirmation.id);
     }, [userForStopConfirmation, activeSessions]);
 
-    const handleStopSession = () => {
+    const handleStopSession = async () => {
         if (userForStopConfirmation) {
-            stopSessionForUser(userForStopConfirmation);
+            await stopSessionForUser(userForStopConfirmation);
         }
         setUserForStopConfirmation(null);
+        setCurrentUser(null);
     };
 
     const handleCancelStop = () => {
+        if (userForStopConfirmation && (userForStopConfirmation.role === 'admin' || userForStopConfirmation.role === 'manager')) {
+            setCurrentUser(userForStopConfirmation);
+        }
         setUserForStopConfirmation(null);
     };
 
@@ -205,16 +255,16 @@ const MainTrackingView: React.FC = () => {
                             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <StopCircle className="w-8 h-8 text-red-600" />
                             </div>
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">Stop Session for {userForStopConfirmation.name}?</h3>
-                            <p className="text-gray-600">You are about to stop the active session for <strong>{sessionToStop.projectName}</strong>.</p>
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">Zastaviť reláciu pre {userForStopConfirmation.name}?</h3>
+                            <p className="text-gray-600">Chystáte sa zastaviť aktívnu reláciu pre projekt <strong>{sessionToStop.project_name}</strong>.</p>
                             <p className="text-lg text-gray-800 mt-2 font-mono">
                                 {sessionTimers[sessionToStop.id] ? formatTime(sessionTimers[sessionToStop.id]) : '00:00:00'}
                             </p>
                         </div>
                         <div className="flex space-x-3">
-                            <button onClick={handleCancelStop} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-4 rounded-xl">Cancel</button>
+                            <button onClick={handleCancelStop} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-4 rounded-xl">Zrušiť</button>
                             <button onClick={handleStopSession} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-xl flex items-center justify-center">
-                                <StopCircle className="w-5 h-5 mr-2" /> Stop Session
+                                <StopCircle className="w-5 h-5 mr-2" /> Zastaviť Reláciu
                             </button>
                         </div>
                     </div>

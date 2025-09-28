@@ -1,4 +1,3 @@
-
 export {
     Camera,
     Play,
@@ -36,4 +35,5 @@ export {
     Target,
     TrendingDown,
     ArrowLeftRight,
+    Building2,
 } from 'lucide-react';

@@ -1,6 +1,10 @@
-
 export type UserRole = 'employee' | 'manager' | 'admin';
-export type View = 'tracking' | 'evaluation' | 'userManagement' | 'projectManagement';
+export type View = 'tracking' | 'evaluation' | 'userManagement' | 'projectManagement' | 'costCenterManagement';
+
+export interface CostCenter {
+  id: string;
+  name: string;
+}
 
 export interface User {
   id: string;
@@ -9,6 +13,8 @@ export interface User {
   password?: string;
   role: UserRole;
   blocked: boolean;
+  can_select_project_manually: boolean;
+  costCenters?: string[]; // Array of cost center IDs
 }
 
 export interface Project {
@@ -17,34 +23,28 @@ export interface Project {
   budget: number;
   deadline: string;
   closed: boolean;
-  estimatedHours?: number;
+  estimated_hours?: number;
+  cost_center_id: string;
 }
 
 export interface ActiveSession {
   id: number;
-  userId: string;
-  userName: string;
-  projectId: string;
-  projectName: string;
-  startTime: number;
-  project: Project;
+  user_id: string;
+  user_name: string;
+  project_id: string;
+  project_name: string;
+  start_time: string; // Comes as ISO string from DB
+  cost_center_id: string;
 }
 
 export interface CompletedSession {
+  id?: number;
   timestamp: string;
   employee_id: string;
   employee_name: string;
   project_id: string;
   project_name: string;
   duration_minutes: number;
-  duration_formatted: string;
-}
-
-export interface QRCodeData {
-  type: 'user' | 'project';
-  id: string;
-  name: string;
-  content: string;
 }
 
 export interface UserBreakdown {
@@ -61,6 +61,6 @@ export interface ProjectEvaluationData extends Project {
     userBreakdown: Record<string, UserBreakdown>;
     allSessions: CompletedSession[];
     costPerHour: number;
-    progressTowardsDeadline: number;
+    workProgressPercentage: number | null;
     timeVariance: number | null;
 }

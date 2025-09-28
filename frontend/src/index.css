@@ -1,19 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Hide the animated laser line in the QR code scanner */
-#qr-reader__scan_region_laser {
+/* Custom style to improve QR scanner appearance */
+#qr-reader video {
+  transform: scaleX(-1); /* Mirror the camera feed for a more natural feel */
+}
+#qr-reader__scan_region > .qr-region-container {
     display: none !important;
 }
-
-/* Add a persistent, visible frame to the scanning region */
 #qr-reader__scan_region {
-    border: 4px solid rgba(255, 255, 255, 0.7) !important;
-    border-radius: 8px;
+    border: 4px solid white !important;
+    border-radius: 16px;
     box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.5);
-}
-
-#qr-reader video {
-    border-radius: 4px; /* Slightly round the corners of the video feed itself */
 }
