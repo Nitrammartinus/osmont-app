@@ -53,6 +53,7 @@ export interface ProjectEvaluationData extends Project {
     userBreakdown: Record<string, UserBreakdown>; // in period
     allSessions: CompletedSession[]; // in period
     costPerHour: number; // lifetime
+    // Fix: Replaced progressTowardsDeadline with workProgressPercentage for a more accurate metric.
     workProgressPercentage: number; // lifetime
     timeVariance: number | null; // lifetime
 }

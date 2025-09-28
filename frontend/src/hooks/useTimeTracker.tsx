@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useContext, createContext, useCallback, useMemo } from 'react';
 import { User, Project, ActiveSession, CompletedSession, View, ProjectEvaluationData, UserBreakdown } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL;
+// The backend URL is provided by Vite's environment variables
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
 
 const formatDuration = (minutes: number) => {
     if (isNaN(minutes)) return '0h 0m';
@@ -26,20 +27,18 @@ interface TimeTrackerContextType {
     isManager: boolean;
     userForStopConfirmation: User | null;
     setUserForStopConfirmation: React.Dispatch<React.SetStateAction<User | null>>;
-    isLoading: boolean;
-    
     processQRCode: (qrText: string) => Promise<{ success: boolean; message: string; }>;
-    handleManualLogin: (username:string, password:string) => Promise<boolean>;
+    handleManualLogin: (username: string, password: string) => Promise<boolean>;
     stopSessionForUser: (user: User) => Promise<void>;
     exportToExcel: () => void;
-    
+    // CRUD functions
     addUser: (user: Partial<User>) => Promise<void>;
     updateUser: (user: User) => Promise<void>;
     deleteUser: (userId: string) => Promise<void>;
-
     addProject: (project: Partial<Project>) => Promise<void>;
     updateProject: (project: Project) => Promise<void>;
     deleteProject: (projectId: string) => Promise<void>;
+    isLoading: boolean;
 }
 
 const TimeTrackerContext = createContext<TimeTrackerContextType | undefined>(undefined);
@@ -58,14 +57,13 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [projects, setProjects] = useState<Project[]>([]);
     const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
     const [completedSessions, setCompletedSessions] = useState<CompletedSession[]>([]);
-
     const [sessionTimers, setSessionTimers] = useState<Record<number, number>>({});
     const [currentView, setCurrentView] = useState<View>('tracking');
     const [userForStopConfirmation, setUserForStopConfirmation] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    
-    const fetchData = useCallback(async (isInitial = false) => {
-        if (isInitial) setIsLoading(true);
+
+    const fetchData = useCallback(async (showLoading = true) => {
+        if (showLoading) setIsLoading(true);
         try {
             const [usersRes, projectsRes, activeSessionsRes, completedSessionsRes] = await Promise.all([
                 fetch(`${API_URL}/users`),
@@ -75,7 +73,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             ]);
 
             if (!usersRes.ok || !projectsRes.ok || !activeSessionsRes.ok || !completedSessionsRes.ok) {
-                 throw new Error('Network response was not ok');
+                 throw new Error('Failed to fetch data from server.');
             }
 
             const usersData = await usersRes.json();
@@ -83,27 +81,25 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             const activeSessionsData = await activeSessionsRes.json();
             const completedSessionsData = await completedSessionsRes.json();
 
-            const formattedCompletedSessions = completedSessionsData.map((s: any) => ({
-                ...s,
-                duration_formatted: formatDuration(s.duration_minutes),
-            }));
-
             setUsers(usersData);
             setProjects(projectsData);
             setActiveSessions(activeSessionsData);
-            setCompletedSessions(formattedCompletedSessions);
+            setCompletedSessions(
+                completedSessionsData.map((s: CompletedSession) => ({
+                    ...s,
+                    duration_formatted: formatDuration(s.duration_minutes),
+                }))
+            );
         } catch (error) {
             console.error("Failed to fetch data:", error);
-            if (isInitial) alert("Nepodarilo sa pripojiť k serveru. Skontrolujte prosím svoje internetové pripojenie a obnovte stránku.");
+            alert("Nepodarilo sa pripojiť k serveru. Skontrolujte pripojenie a obnovte stránku.");
         } finally {
-            if (isInitial) setIsLoading(false);
+            if (showLoading) setIsLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchData(true);
-        const intervalId = setInterval(() => fetchData(false), 5000); // Poll every 5 seconds
-        return () => clearInterval(intervalId);
+        fetchData();
     }, [fetchData]);
 
     useEffect(() => {
@@ -111,169 +107,96 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             const now = Date.now();
             const updatedTimers: Record<number, number> = {};
             activeSessions.forEach(session => {
-                const startTime = new Date(session.startTime).getTime();
-                updatedTimers[session.id] = now - startTime;
+                updatedTimers[session.id] = now - new Date(session.startTime).getTime();
             });
             setSessionTimers(updatedTimers);
         }, 1000);
+
         return () => clearInterval(interval);
     }, [activeSessions]);
+    
+    // --- CRUD Operations ---
+    const apiRequest = async (url: string, method: string, body?: any) => {
+        try {
+            const options: RequestInit = {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+            };
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Neznáma chyba servera' }));
+                throw new Error(errorData.error);
+            }
+            return response;
+        } catch (error) {
+            console.error(`Error with ${method} ${url}:`, error);
+            alert((error as Error).message);
+            throw error;
+        }
+    };
 
     const addUser = async (user: Partial<User>) => {
-        try {
-            const res = await fetch(`${API_URL}/users`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(user)
-            });
-            if (res.ok) {
-                await fetchData();
-            } else {
-                const err = await res.json();
-                alert(`Chyba pri pridaní používateľa: ${err.error}`);
-            }
-        } catch (error) { console.error(error); alert('Nepodarilo sa pridať používateľa.'); }
+        await apiRequest(`${API_URL}/users`, 'POST', user);
+        await fetchData(false);
     };
-    
+
     const updateUser = async (user: User) => {
-        try {
-            const res = await fetch(`${API_URL}/users/${user.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(user)
-            });
-            if(res.ok) {
-                await fetchData();
-            } else {
-                const err = await res.json();
-                alert(`Chyba pri aktualizácii používateľa: ${err.error}`);
-            }
-        } catch (error) { console.error(error); alert('Nepodarilo sa aktualizovať používateľa.'); }
+        await apiRequest(`${API_URL}/users/${user.id}`, 'PUT', user);
+        await fetchData(false);
     };
 
     const deleteUser = async (userId: string) => {
-        try {
-            const res = await fetch(`${API_URL}/users/${userId}`, { method: 'DELETE' });
-            if (res.ok) {
-                await fetchData();
-            } else {
-                alert('Chyba pri mazaní používateľa.');
-            }
-        } catch (error) { console.error(error); alert('Nepodarilo sa vymazať používateľa.'); }
-    };
-
-    const addProject = async (project: Partial<Project>) => {
-        try {
-            const res = await fetch(`${API_URL}/projects`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(project)
-            });
-            if (res.ok) {
-                await fetchData();
-            } else {
-                alert('Chyba pri pridaní projektu.');
-            }
-        } catch (error) { console.error(error); alert('Nepodarilo sa pridať projekt.'); }
+        await apiRequest(`${API_URL}/users/${userId}`, 'DELETE');
+        await fetchData(false);
     };
     
+    const addProject = async (project: Partial<Project>) => {
+        await apiRequest(`${API_URL}/projects`, 'POST', project);
+        await fetchData(false);
+    };
+
     const updateProject = async (project: Project) => {
-        try {
-            const res = await fetch(`${API_URL}/projects/${project.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(project)
-            });
-            if(res.ok) {
-                await fetchData();
-            } else {
-                alert('Chyba pri aktualizácii projektu.');
-            }
-        } catch (error) { console.error(error); alert('Nepodarilo sa aktualizovať projekt.'); }
+        await apiRequest(`${API_URL}/projects/${project.id}`, 'PUT', project);
+        await fetchData(false);
     };
 
     const deleteProject = async (projectId: string) => {
-        try {
-            const res = await fetch(`${API_URL}/projects/${projectId}`, { method: 'DELETE' });
-            if (res.ok) {
-                await fetchData();
-            } else {
-                alert('Chyba pri mazaní projektu.');
-            }
-        } catch (error) { console.error(error); alert('Nepodarilo sa vymazať projekt.'); }
+        await apiRequest(`${API_URL}/projects/${projectId}`, 'DELETE');
+        await fetchData(false);
     };
 
-    const startSession = async (projectId: string) => {
-        if (!currentUser) return { success: false, message: 'Žiaden používateľ nie je prihlásený.'};
+    // --- Auth and Session Logic ---
+    const handleManualLogin = async (username: string, password: string): Promise<boolean> => {
         try {
-            const res = await fetch(`${API_URL}/active-sessions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: currentUser.id, projectId })
-            });
-            if (res.ok) {
-                await fetchData(); 
-                setCurrentUser(null);
-                return { success: true, message: 'Relácia spustená.' };
+            const response = await apiRequest(`${API_URL}/login`, 'POST', { username, password });
+            const user = await response.json();
+            
+            const existingSession = activeSessions.find(session => session.userId === user.id);
+            if (existingSession) {
+                setUserForStopConfirmation(user);
             } else {
-                const err = await res.json();
-                return { success: false, message: `Chyba pri spustení relácie: ${err.error}` };
+                setCurrentUser(user);
             }
+            return true;
         } catch (error) {
-            console.error(error);
-            return { success: false, message: 'Nepodarilo sa spustiť reláciu.' };
-        }
-    };
-
-    const stopSessionForUser = async (user: User) => {
-        try {
-            const res = await fetch(`${API_URL}/active-sessions/user/${user.id}`, { method: 'DELETE' });
-            if (res.ok) {
-                await fetchData(); 
-            } else {
-                alert('Chyba pri zastavení relácie.');
-            }
-        } catch (error) {
-            console.error(error);
-            alert('Nepodarilo sa zastaviť reláciu.');
-        }
-    };
-    
-    const handleManualLogin = async (username:string, password:string): Promise<boolean> => {
-        try {
-            const res = await fetch(`${API_URL}/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-            if(res.ok) {
-                const user = await res.json();
-                const userHasActiveSession = activeSessions.some(s => s.userId === user.id);
-                if (userHasActiveSession) {
-                    setUserForStopConfirmation(user);
-                } else {
-                    setCurrentUser(user);
-                }
-                return true;
-            } else {
-                const err = await res.json();
-                alert(`Prihlásenie zlyhalo: ${err.error}`);
-                return false;
-            }
-        } catch(e) {
-            alert('Požiadavka na prihlásenie zlyhala. Skontrolujte pripojenie k serveru.');
+            // Error is already alerted by apiRequest
             return false;
         }
     };
 
     const processQRCode = async (qrText: string): Promise<{ success: boolean; message: string; }> => {
-        const trimmedText = qrText.trim();
-        if (trimmedText.startsWith('USER_ID:')) {
-            const userId = trimmedText.substring('USER_ID:'.length);
-            const user = users.find(u => u.id === userId && !u.blocked);
+        if (qrText.startsWith('USER_ID:')) {
+            const userId = qrText.substring('USER_ID:'.length);
+            const user = users.find(u => u.id === userId);
             if (user) {
-                const userHasActiveSession = activeSessions.some(session => session.userId === user.id);
-                if (userHasActiveSession) {
+                 if (user.blocked) {
+                    return { success: false, message: 'Používateľ je zablokovaný.' };
+                }
+                const existingSession = activeSessions.find(session => session.userId === user.id);
+                if (existingSession) {
                     setUserForStopConfirmation(user);
                     return { success: true, message: `Nájdená aktívna relácia pre ${user.name}.` };
                 } else {
@@ -281,24 +204,45 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     return { success: true, message: `Prihlásený ako ${user.name}.` };
                 }
             } else {
-                return { success: false, message: 'Neplatný alebo zablokovaný QR kód používateľa.' };
+                return { success: false, message: 'Neplatný alebo blokovaný QR kód používateľa.' };
             }
-        } else if (trimmedText.startsWith('PROJECT_ID:')) {
+        } else if (qrText.startsWith('PROJECT_ID:')) {
             if (!currentUser) {
-                return { success: false, message: 'Pred skenovaním projektu sa prosím prihláste.' };
+                return { success: false, message: 'Prosím, prihláste sa pred skenovaním projektu.' };
             }
-            if (activeSessions.some(session => session.userId === currentUser.id)) {
-                 return { success: false, message: 'Už máte aktívnu reláciu. Pre jej zastavenie sa prosím znova overte.' };
+            const existingUserSession = activeSessions.find(session => session.userId === currentUser.id);
+            if (existingUserSession) {
+                return { success: false, message: 'Už máte aktívnu reláciu. Prosím, overte sa znova, aby ste ju zastavili.' };
             }
-            const projectId = trimmedText.substring('PROJECT_ID:'.length);
-            const project = projects.find(p => p.id === projectId && !p.closed);
+            const projectId = qrText.substring('PROJECT_ID:'.length);
+            const project = projects.find(p => p.id === projectId);
+
             if (project) {
-                return await startSession(projectId);
+                 if (project.closed) {
+                    return { success: false, message: 'Projekt je uzatvorený.' };
+                }
+                try {
+                    await apiRequest(`${API_URL}/active-sessions`, 'POST', { userId: currentUser.id, projectId: project.id });
+                    await fetchData(false);
+                    setCurrentUser(null);
+                    return { success: true, message: `Relácia pre ${project.name} spustená.` };
+                } catch(e) {
+                     return { success: false, message: (e as Error).message };
+                }
             } else {
                 return { success: false, message: 'Neplatný alebo uzatvorený QR kód projektu.' };
             }
         } else {
             return { success: false, message: 'Nerozpoznaný formát QR kódu.' };
+        }
+    };
+
+    const stopSessionForUser = async (user: User) => {
+        try {
+            await apiRequest(`${API_URL}/active-sessions/user/${user.id}`, 'DELETE');
+            await fetchData(false);
+        } catch (error) {
+            console.error('Failed to stop session:', error);
         }
     };
     
@@ -307,48 +251,50 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             alert('Žiadne dokončené relácie na export!');
             return;
         }
-        const headers = ['Timestamp', 'ID Zamestnanca', 'Meno Zamestnanca', 'ID Projektu', 'Názov Projektu', 'Trvanie (minúty)'];
+        const headers = ['Timestamp', 'Employee ID', 'Employee Name', 'Project ID', 'Project Name', 'Duration (minutes)'];
         const csvContent = [
-            headers.join(';'),
-            ...completedSessions.map(s => `"${s.timestamp}";"${s.employee_id}";"${s.employee_name}";"${s.project_id}";"${s.project_name}";${s.duration_minutes}`)
+            headers.join(','),
+            ...completedSessions.map(s => `"${s.timestamp}","${s.employee_id}","${s.employee_name}","${s.project_id}","${s.project_name}",${s.duration_minutes}`)
         ].join('\n');
-        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `export_sledovania_casu_${new Date().toISOString().split('T')[0]}.csv`;
+        link.download = `time_tracking_export_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
     }, [completedSessions]);
     
-    const projectEvaluation = useMemo((): Record<string, ProjectEvaluationData> => {
+    const getProjectEvaluation = useCallback((): Record<string, ProjectEvaluationData> => {
         const evaluation: Record<string, ProjectEvaluationData> = {};
         projects.forEach(project => {
-            // Lifetime calculations
-            const allProjectSessions = completedSessions.filter(s => s.project_id === project.id);
-            const lifetimeTotalTime = allProjectSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
-            const lifetimeTotalHours = lifetimeTotalTime / 60;
-            const costPerHour = lifetimeTotalHours > 0 ? project.budget / lifetimeTotalHours : 0;
-            const timeVariance = project.estimatedHours != null ? lifetimeTotalHours - project.estimatedHours : null;
-            const workProgressPercentage = (project.estimatedHours && lifetimeTotalHours > 0) ? Math.min(100, (lifetimeTotalHours / project.estimatedHours) * 100) : 0;
+            const projectSessions = completedSessions.filter(s => s.project_id === project.id);
+            const totalTime = projectSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
+            const totalHours = totalTime / 60;
+            const uniqueUsers = [...new Set(projectSessions.map(s => s.employee_id))].length;
 
-            // In-period calculations (for display)
-            const uniqueUsers = [...new Set(allProjectSessions.map(s => s.employee_id))].length;
             const userBreakdown: Record<string, UserBreakdown> = {};
-            allProjectSessions.forEach(session => {
+            projectSessions.forEach(session => {
                 if (!userBreakdown[session.employee_id]) {
                     userBreakdown[session.employee_id] = { name: session.employee_name, totalTime: 0, sessions: 0 };
                 }
                 userBreakdown[session.employee_id].totalTime += session.duration_minutes;
                 userBreakdown[session.employee_id].sessions += 1;
             });
+            
+            const costPerHour = totalHours > 0 ? project.budget / totalHours : 0;
+            const timeVariance = project.estimatedHours != null ? totalHours - project.estimatedHours : null;
+            
+            const workProgressPercentage = project.estimatedHours && project.estimatedHours > 0
+                ? Math.min(100, (totalHours / project.estimatedHours) * 100)
+                : 0;
 
             evaluation[project.id] = {
                 ...project,
-                totalTime: lifetimeTotalTime,
+                totalTime,
                 uniqueUsers,
-                sessions: allProjectSessions.length,
-                averageSession: allProjectSessions.length > 0 ? lifetimeTotalTime / allProjectSessions.length : 0,
+                sessions: projectSessions.length,
+                averageSession: projectSessions.length > 0 ? totalTime / projectSessions.length : 0,
                 userBreakdown,
-                allSessions: allProjectSessions.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
+                allSessions: projectSessions.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
                 costPerHour,
                 workProgressPercentage,
                 timeVariance,
@@ -357,6 +303,8 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         return evaluation;
     }, [projects, completedSessions]);
 
+    const projectEvaluation = useMemo(() => getProjectEvaluation(), [getProjectEvaluation]);
+    
     const canAccessEvaluation = currentUser?.role === 'manager' || currentUser?.role === 'admin';
     const isAdmin = currentUser?.role === 'admin';
     const isManager = currentUser?.role === 'manager';
@@ -377,7 +325,6 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         isManager,
         userForStopConfirmation,
         setUserForStopConfirmation,
-        isLoading,
         processQRCode,
         handleManualLogin,
         stopSessionForUser,
@@ -388,6 +335,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         addProject,
         updateProject,
         deleteProject,
+        isLoading,
     };
 
     return <TimeTrackerContext.Provider value={value}>{children}</TimeTrackerContext.Provider>;
