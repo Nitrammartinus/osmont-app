@@ -1,1 +1,15 @@
-~éer‰íz{l¡÷ë¢{^ßé¹¹bsùš'Ş²y¹š'Ş²
+{
+  "name": "Project Timer",
+  "short_name": "ProjectTimer",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563EB"
+}
