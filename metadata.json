@@ -1,6 +1,6 @@
 {
   "name": "Project Timer",
-  "description": "A comprehensive time tracking application for projects, allowing employees to track work hours via QR codes or manual login, and providing managers and admins with tools for user, project, and performance management.",
+  "description": "A comprehensive time tracking application with project and user management.",
   "requestFramePermissions": [
     "camera"
   ]
