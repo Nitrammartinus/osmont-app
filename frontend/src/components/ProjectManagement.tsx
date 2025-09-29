@@ -4,17 +4,26 @@ import { Project } from '../types';
 import { FolderPlus, Edit, Trash2, Lock, Unlock, QrCode, ChevronLeft, Download } from './Icons';
 
 const ProjectManagement: React.FC = () => {
-    const { projects, costCenters, addProject, updateProject, deleteProject } = useTimeTracker();
+    const { projects, addProject, updateProject, deleteProject, costCenters } = useTimeTracker();
     const [editingProject, setEditingProject] = useState<Project | null>(null);
     const [newProject, setNewProject] = useState<Partial<Project>>({ name: '', budget: 0, deadline: '', estimated_hours: 0, cost_center_id: '' });
     const [showQRCode, setShowQRCode] = useState<{ project: Project, content: string } | null>(null);
+    const [loading, setLoading] = useState(false);
 
     const handleAddProject = async () => {
         if (!newProject.name || !newProject.budget || !newProject.deadline || !newProject.cost_center_id) {
             alert('Prosím, vyplňte všetky polia pre nový projekt.');
             return;
         }
-        const success = await addProject(newProject as Omit<Project, 'id'|'closed'>);
+        setLoading(true);
+        const success = await addProject({
+            name: newProject.name,
+            budget: Number(newProject.budget),
+            deadline: newProject.deadline,
+            estimated_hours: Number(newProject.estimated_hours) || undefined,
+            cost_center_id: newProject.cost_center_id
+        });
+        setLoading(false);
         if (success) {
             setNewProject({ name: '', budget: 0, deadline: '', estimated_hours: 0, cost_center_id: '' });
         }
@@ -22,26 +31,32 @@ const ProjectManagement: React.FC = () => {
 
     const handleUpdateProject = async () => {
         if (!editingProject) return;
-        const success = await updateProject(editingProject);
+        setLoading(true);
+        const projectToUpdate: Project = {
+            ...editingProject,
+            estimated_hours: Number(editingProject.estimated_hours) || undefined,
+        };
+        const success = await updateProject(projectToUpdate);
+        setLoading(false);
         if (success) {
             setEditingProject(null);
         }
     };
 
-    const handleDeleteProject = async (projectId: string) => {
+    const handleDeleteProject = (projectId: string) => {
         if (window.confirm('Naozaj chcete zmazať tento projekt?')) {
-            await deleteProject(projectId);
+            deleteProject(projectId);
         }
     };
     
-    const toggleProjectStatus = async (project: Project) => {
-        await updateProject({ ...project, closed: !project.closed });
+    const toggleProjectStatus = (project: Project) => {
+        updateProject({ ...project, closed: !project.closed });
     };
     
     const generateQRCode = (project: Project) => {
         setShowQRCode({ project, content: `PROJECT_ID:${project.id}` });
     };
-    
+
     if (showQRCode) {
         return (
              <div className="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-xl">
@@ -78,14 +93,14 @@ const ProjectManagement: React.FC = () => {
                      <div className="space-y-4">
                          <input type="text" placeholder="Názov projektu" value={editingProject.name} onChange={e => setEditingProject({...editingProject, name: e.target.value})} className="w-full p-2 border rounded" />
                          <input type="number" placeholder="Rozpočet" value={editingProject.budget} onChange={e => setEditingProject({...editingProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded" />
-                         <input type="date" value={editingProject.deadline} onChange={e => setEditingProject({...editingProject, deadline: e.target.value})} className="w-full p-2 border rounded" />
-                         <input type="number" placeholder="Odhadované hodiny" value={editingProject.estimated_hours || ''} onChange={e => setEditingProject({...editingProject, estimated_hours: Number(e.target.value) || undefined})} className="w-full p-2 border rounded" />
+                         <input type="date" value={editingProject.deadline.split('T')[0]} onChange={e => setEditingProject({...editingProject, deadline: e.target.value})} className="w-full p-2 border rounded" />
+                         <input type="number" placeholder="Odhadované hodiny" value={editingProject.estimated_hours || ''} onChange={e => setEditingProject({...editingProject, estimated_hours: Number(e.target.value)})} className="w-full p-2 border rounded" />
                          <select value={editingProject.cost_center_id} onChange={e => setEditingProject({...editingProject, cost_center_id: e.target.value})} className="w-full p-2 border rounded">
-                            <option value="" disabled>-- Vyberte stredisko --</option>
-                            {costCenters.map(center => <option key={center.id} value={center.id}>{center.name}</option>)}
+                            <option value="">-- Vyberte stredisko --</option>
+                            {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                          </select>
                          <div className="flex space-x-2">
-                            <button onClick={handleUpdateProject} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Uložiť</button>
+                            <button onClick={handleUpdateProject} disabled={loading} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50">{loading ? 'Ukladám...' : 'Uložiť'}</button>
                             <button onClick={() => setEditingProject(null)} className="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300">Zrušiť</button>
                          </div>
                      </div>
@@ -102,20 +117,20 @@ const ProjectManagement: React.FC = () => {
                     <input type="text" placeholder="Názov projektu" value={newProject.name || ''} onChange={e => setNewProject({...newProject, name: e.target.value})} className="w-full p-2 border rounded" />
                     <input type="number" placeholder="Rozpočet" value={newProject.budget || ''} onChange={e => setNewProject({...newProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded" />
                     <input type="date" value={newProject.deadline || ''} onChange={e => setNewProject({...newProject, deadline: e.target.value})} className="w-full p-2 border rounded" />
-                    <input type="number" placeholder="Odhadované hodiny" value={newProject.estimated_hours || ''} onChange={e => setNewProject({...newProject, estimated_hours: Number(e.target.value) || undefined})} className="w-full p-2 border rounded" />
-                    <select value={newProject.cost_center_id || ''} onChange={e => setNewProject({...newProject, cost_center_id: e.target.value})} className="w-full p-2 border rounded md:col-span-2">
-                        <option value="" disabled>-- Vyberte stredisko --</option>
-                        {costCenters.map(center => <option key={center.id} value={center.id}>{center.name}</option>)}
+                    <input type="number" placeholder="Odhadované hodiny" value={newProject.estimated_hours || ''} onChange={e => setNewProject({...newProject, estimated_hours: Number(e.target.value)})} className="w-full p-2 border rounded" />
+                    <select value={newProject.cost_center_id} onChange={e => setNewProject({...newProject, cost_center_id: e.target.value})} className="w-full p-2 border rounded md:col-span-2">
+                        <option value="">-- Vyberte nákladové stredisko --</option>
+                        {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </div>
-                <button onClick={handleAddProject} className="mt-4 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Pridať Projekt</button>
+                <button onClick={handleAddProject} disabled={loading} className="mt-4 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50">{loading ? 'Pridávam...' : 'Pridať Projekt'}</button>
             </div>
             <div className="bg-white rounded-2xl shadow-xl p-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Existujúce Projekty ({projects.length})</h3>
                 <div className="space-y-3">
                     {projects.map(project => (
-                        <div key={project.id} className="bg-gray-50 p-3 rounded-lg flex items-center justify-between">
-                             <div>
+                        <div key={project.id} className="bg-gray-50 p-3 rounded-lg flex items-center justify-between flex-wrap">
+                             <div className="mb-2 sm:mb-0">
                                 <p className="font-medium">{project.name} <span className={`text-xs px-2 py-0.5 rounded-full ml-2 ${project.closed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{project.closed ? 'Uzatvorený' : 'Otvorený'}</span></p>
                                 <p className="text-sm text-gray-600">Rozpočet: {project.budget.toLocaleString()} € | Deadline: {new Date(project.deadline).toLocaleDateString('sk-SK')}</p>
                             </div>

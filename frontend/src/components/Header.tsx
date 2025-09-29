@@ -7,31 +7,30 @@ const Header: React.FC = () => {
 
     const handleLogout = () => {
         setCurrentUser(null);
-        setCurrentView('tracking');
     };
 
     return (
         <header className="bg-white shadow-md p-4 sticky top-0 z-10">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setCurrentView('tracking')}>
                     <Clock className="w-8 h-8 text-blue-600" />
                     <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Time Tracker</h1>
                 </div>
 
                 <div className="flex items-center space-x-2 sm:space-x-4">
                     {isAdmin && (
-                        <>
-                            <button onClick={() => setCurrentView('userManagement')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Správa používateľov">
-                                <Settings className="w-5 h-5" />
-                            </button>
-                             <button onClick={() => setCurrentView('costCenterManagement')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Správa stredísk">
-                                <Building2 className="w-5 h-5" />
-                            </button>
-                        </>
+                         <button onClick={() => setCurrentView('userManagement')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Správa Používateľov">
+                            <Settings className="w-5 h-5" />
+                        </button>
                     )}
-                    {(isAdmin || isManager) && (
-                        <button onClick={() => setCurrentView('projectManagement')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Správa projektov">
+                     {(isManager || isAdmin) && (
+                        <button onClick={() => setCurrentView('projectManagement')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Správa Projektov">
                             <FolderPlus className="w-5 h-5" />
+                        </button>
+                    )}
+                    {isAdmin && (
+                        <button onClick={() => setCurrentView('costCenterManagement')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Správa Stredísk">
+                            <Building2 className="w-5 h-5" />
                         </button>
                     )}
                     {canAccessEvaluation && (
@@ -46,7 +45,7 @@ const Header: React.FC = () => {
                                 <span className="text-sm font-medium text-blue-800">{currentUser.name}</span>
                                 <span className="ml-2 bg-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded-full capitalize">{currentUser.role}</span>
                             </div>
-                            <button onClick={handleLogout} className="p-2 rounded-full text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors" title="Odhlásiť sa">
+                            <button onClick={handleLogout} className="p-2 rounded-full text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors" title="Odhlásiť">
                                 <LogOut className="w-5 h-5" />
                             </button>
                         </div>
