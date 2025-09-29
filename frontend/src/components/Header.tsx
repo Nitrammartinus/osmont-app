@@ -29,7 +29,7 @@ const Header: React.FC = () => {
                             </button>
                         </>
                     )}
-                     {(isManager || isAdmin) && (
+                    {(isAdmin || isManager) && (
                         <button onClick={() => setCurrentView('projectManagement')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Správa projektov">
                             <FolderPlus className="w-5 h-5" />
                         </button>
@@ -46,7 +46,7 @@ const Header: React.FC = () => {
                                 <span className="text-sm font-medium text-blue-800">{currentUser.name}</span>
                                 <span className="ml-2 bg-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded-full capitalize">{currentUser.role}</span>
                             </div>
-                            <button onClick={handleLogout} className="p-2 rounded-full text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors" title="Odhlásiť">
+                            <button onClick={handleLogout} className="p-2 rounded-full text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors" title="Odhlásiť sa">
                                 <LogOut className="w-5 h-5" />
                             </button>
                         </div>

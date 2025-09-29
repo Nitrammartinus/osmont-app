@@ -1,8 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-import { User as UserIcon, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle, Building2 } from './Icons';
+import { User, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
 import QRCodeScanner from './QRCodeScanner';
-import { ActiveSession, CostCenter, User } from '../types';
 
 const Login: React.FC = () => {
     const { login, processQRCode } = useTimeTracker();
@@ -11,17 +10,17 @@ const Login: React.FC = () => {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
-    const [isLoggingIn, setIsLoggingIn] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     const onLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoggingIn(true);
+        setIsLoading(true);
         const success = await login(username, password);
+        setIsLoading(false);
         if (success) {
             setUsername('');
             setPassword('');
         }
-        setIsLoggingIn(false);
     };
 
     const handleScanSuccess = async (decodedText: string) => {
@@ -41,7 +40,7 @@ const Login: React.FC = () => {
                                 onClick={() => setLoginMethod(method as 'qr' | 'manual')}
                                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${loginMethod === method ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}
                             >
-                                {method === 'qr' ? 'QR Kód' : 'Manuálne'}
+                                {method === 'qr' ? 'QR Kód' : 'Manuálne Prihlásenie'}
                             </button>
                         ))}
                     </div>
@@ -51,10 +50,10 @@ const Login: React.FC = () => {
                     <div className="text-center max-w-sm mx-auto">
                         <div className="bg-gray-100 rounded-xl p-6">
                             <QrCode className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-600 mb-4">Naskenujte svoj QR kód pre prihlásenie.</p>
+                            <p className="text-gray-600 mb-4">Naskenujte svoj používateľský QR kód.</p>
                             <button onClick={() => setIsScanning(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 flex items-center justify-center mx-auto">
                                 <QrCode className="w-5 h-5 mr-2" />
-                                Skenovať QR kód
+                                Naskenovať QR Používateľa
                             </button>
                         </div>
                     </div>
@@ -69,8 +68,8 @@ const Login: React.FC = () => {
                                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                             </button>
                         </div>
-                        <button type="submit" disabled={isLoggingIn} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 disabled:bg-blue-300 disabled:cursor-not-allowed">
-                            {isLoggingIn ? 'Prihlasujem...' : 'Prihlásiť'}
+                        <button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 disabled:bg-blue-400 disabled:cursor-not-allowed">
+                            {isLoading ? 'Prihlasujem...' : 'Prihlásiť sa'}
                         </button>
                     </form>
                 )}
@@ -79,55 +78,49 @@ const Login: React.FC = () => {
     );
 };
 
-
 const StartTracking: React.FC = () => {
     const { currentUser, projects, processQRCode, startSession } = useTimeTracker();
     const [isScanning, setIsScanning] = useState(false);
-    const [selectedProject, setSelectedProject] = useState('');
-
-    const userProjects = useMemo(() => {
-        if (!currentUser || !currentUser.costCenters) return [];
-        return projects.filter(p => currentUser.costCenters?.includes(p.cost_center_id) && !p.closed);
-    }, [projects, currentUser]);
+    const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+    
+    const availableProjects = useMemo(() => projects.filter(p => !p.closed), [projects]);
 
     const handleScanSuccess = async (decodedText: string) => {
         setIsScanning(false);
         await processQRCode(decodedText);
     };
 
-    const handleManualStart = async () => {
-        if (!selectedProject) {
+    const handleStartSession = async () => {
+        if(selectedProjectId) {
+            await startSession(selectedProjectId);
+        } else {
             alert("Prosím, vyberte projekt.");
-            return;
         }
-        await startSession(selectedProject);
     };
 
     return (
         <>
             {isScanning && <QRCodeScanner onScanSuccess={handleScanSuccess} onClose={() => setIsScanning(false)} />}
-            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4 text-center">Spustiť novú reláciu</h2>
-                
-                {currentUser?.can_select_project_manually && userProjects.length > 0 && (
-                     <div className="bg-gray-50 rounded-xl p-6 text-center mb-6">
-                         <h3 className="font-semibold text-gray-700 mb-3">Manuálny výber projektu</h3>
-                         <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)} className="w-full max-w-xs mx-auto p-2 border rounded-lg mb-3">
-                             <option value="">-- Vyberte projekt --</option>
-                             {userProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                         </select>
-                         <button onClick={handleManualStart} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-xl transition-transform transform hover:scale-105 duration-200">
-                            Spustiť
-                         </button>
-                     </div>
+            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6 text-center">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Spustiť Novú Reláciu</h2>
+                {currentUser?.can_select_project_manually && (
+                     <div className="max-w-sm mx-auto mb-6">
+                        <h3 className="text-md font-medium text-gray-700 mb-2">Vybrať Projekt Manuálne</h3>
+                        <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg bg-white">
+                            <option value="" disabled>-- Vyberte projekt --</option>
+                            {availableProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                        <button onClick={handleStartSession} disabled={!selectedProjectId} className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 disabled:bg-blue-400">
+                            Spustiť Reláciu
+                        </button>
+                    </div>
                 )}
-               
-                <div className="bg-gray-100 rounded-xl p-6 text-center">
-                    <QrCode className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-4">Naskenujte QR kód projektu pre spustenie relácie.</p>
+                <div className="bg-gray-100 rounded-xl p-6">
+                    <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4">Naskenujte QR kód projektu pre spustenie merania.</p>
                     <button onClick={() => setIsScanning(true)} className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 flex items-center justify-center mx-auto">
                         <BarChart3 className="w-5 h-5 mr-2" />
-                        Skenovať QR kód
+                        Naskenovať QR Projektu
                     </button>
                 </div>
             </div>
@@ -136,23 +129,9 @@ const StartTracking: React.FC = () => {
 };
 
 const ActiveSessions: React.FC = () => {
-    const { activeSessions, sessionTimers, projects, costCenters, currentUser } = useTimeTracker();
-    const [selectedCenter, setSelectedCenter] = useState('');
-    
-    const userCostCenters = useMemo(() => {
-        if (currentUser?.role === 'admin') return costCenters;
-        if (!currentUser?.costCenters) return [];
-        return costCenters.filter(cc => currentUser.costCenters?.includes(cc.id));
-    }, [costCenters, currentUser]);
-
-    const filteredSessions = useMemo(() => {
-        if (!selectedCenter) return activeSessions;
-        return activeSessions.filter(s => s.cost_center_id === selectedCenter);
-    }, [activeSessions, selectedCenter]);
-
+    const { activeSessions, sessionTimers, currentUser } = useTimeTracker();
 
     const formatTime = (milliseconds: number) => {
-        if (isNaN(milliseconds)) return '00:00:00';
         const totalSeconds = Math.floor(milliseconds / 1000);
         const hours = Math.floor(totalSeconds / 3600);
         const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -162,37 +141,28 @@ const ActiveSessions: React.FC = () => {
 
     return (
         <div className="bg-white rounded-2xl shadow-xl p-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-                <h2 className="text-lg font-semibold text-gray-800">Aktívne relácie</h2>
-                {userCostCenters.length > 1 && (
-                     <div className="flex items-center space-x-2">
-                         <Building2 className="w-5 h-5 text-gray-500"/>
-                         <select value={selectedCenter} onChange={e => setSelectedCenter(e.target.value)} className="p-1 border rounded-lg text-sm">
-                             <option value="">Všetky strediská</option>
-                             {userCostCenters.map(cc => <option key={cc.id} value={cc.id}>{cc.name}</option>)}
-                         </select>
-                     </div>
-                )}
-                <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">{filteredSessions.length} aktívnych</div>
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-gray-800">Aktívne Relácie</h2>
+                <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">{activeSessions.length} aktívnych</div>
             </div>
 
-            {filteredSessions.length > 0 ? (
+            {activeSessions.length > 0 ? (
                 <div className="space-y-4">
-                    {filteredSessions.map((session: ActiveSession) => {
-                        const project = projects.find(p => p.id === session.project_id);
+                    {activeSessions.map(session => {
+                        const isCurrentUserSession = currentUser?.id === session.user_id;
                         return (
-                            <div key={session.id} className="rounded-lg p-4 border-l-4 border-gray-300 bg-gray-50">
+                            <div key={session.id} className={`rounded-lg p-4 border-l-4 ${isCurrentUserSession ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'}`}>
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <div className="flex items-center mb-1">
-                                            <UserIcon className="w-4 h-4 text-gray-600 mr-2" />
+                                            <User className="w-4 h-4 text-gray-600 mr-2" />
                                             <p className="font-medium text-gray-800">{session.user_name}</p>
                                         </div>
                                         <p className="text-sm text-gray-700 font-medium">{session.project_name}</p>
-                                         {project?.closed && <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full mt-1 inline-block">Projekt Uzatvorený</span>}
                                     </div>
                                     <div className="text-right ml-4">
                                         <p className="font-mono text-xl font-bold text-blue-600">{sessionTimers[session.id] ? formatTime(sessionTimers[session.id]) : '00:00:00'}</p>
+                                        {isCurrentUserSession && <div className="mt-2 text-blue-800 text-xs font-medium py-1 px-2 rounded-full bg-blue-100">Vaša Relácia</div>}
                                     </div>
                                 </div>
                             </div>
@@ -210,8 +180,8 @@ const ActiveSessions: React.FC = () => {
 };
 
 const MainTrackingView: React.FC = () => {
-    const { currentUser, setCurrentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
-    const userHasActiveSession = useMemo(() => activeSessions.some(s => s.user_id === currentUser?.id), [activeSessions, currentUser]);
+    const { currentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
+    const userHasActiveSession = activeSessions.some(s => s.user_id === currentUser?.id);
 
     const sessionToStop = useMemo(() => {
         if (!userForStopConfirmation) return null;
@@ -223,13 +193,9 @@ const MainTrackingView: React.FC = () => {
             await stopSessionForUser(userForStopConfirmation);
         }
         setUserForStopConfirmation(null);
-        setCurrentUser(null);
     };
 
     const handleCancelStop = () => {
-        if (userForStopConfirmation && (userForStopConfirmation.role === 'admin' || userForStopConfirmation.role === 'manager')) {
-            setCurrentUser(userForStopConfirmation);
-        }
         setUserForStopConfirmation(null);
     };
 
@@ -256,7 +222,7 @@ const MainTrackingView: React.FC = () => {
                                 <StopCircle className="w-8 h-8 text-red-600" />
                             </div>
                             <h3 className="text-xl font-bold text-gray-800 mb-2">Zastaviť reláciu pre {userForStopConfirmation.name}?</h3>
-                            <p className="text-gray-600">Chystáte sa zastaviť aktívnu reláciu pre projekt <strong>{sessionToStop.project_name}</strong>.</p>
+                            <p className="text-gray-600">Chystáte sa zastaviť aktívnu reláciu pre <strong>{sessionToStop.project_name}</strong>.</p>
                             <p className="text-lg text-gray-800 mt-2 font-mono">
                                 {sessionTimers[sessionToStop.id] ? formatTime(sessionTimers[sessionToStop.id]) : '00:00:00'}
                             </p>
