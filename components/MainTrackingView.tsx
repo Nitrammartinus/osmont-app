@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useTimeTracker } from '../hooks/useTimeTracker';
+// FIX: Import shared formatTime function
+import { useTimeTracker, formatTime } from '../hooks/useTimeTracker';
 import { User, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
 import QRCodeScanner from './QRCodeScanner';
 
@@ -112,14 +113,8 @@ const StartTracking: React.FC = () => {
 
 const ActiveSessions: React.FC = () => {
     const { activeSessions, sessionTimers, currentUser, projects } = useTimeTracker();
-
-    const formatTime = (milliseconds: number) => {
-        const totalSeconds = Math.floor(milliseconds / 1000);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    };
+    
+    // FIX: Removed redundant local formatTime function.
 
     return (
         <div className="bg-white rounded-2xl shadow-xl p-6">
@@ -183,14 +178,7 @@ const MainTrackingView: React.FC = () => {
         setUserForStopConfirmation(null);
     };
 
-    const formatTime = (milliseconds: number) => {
-        if (isNaN(milliseconds)) return '00:00:00';
-        const totalSeconds = Math.floor(milliseconds / 1000);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    };
+    // FIX: Removed redundant local formatTime function.
 
     return (
         <div className="max-w-4xl mx-auto">

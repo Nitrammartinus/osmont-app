@@ -1,8 +1,7 @@
 export type UserRole = 'employee' | 'manager' | 'admin';
-export type View = 'tracking' | 'evaluation' | 'userManagement' | 'projectManagement' | 'costCenterManagement';
 
 export interface CostCenter {
-  id: string;
+  id: number;
   name: string;
 }
 
@@ -14,7 +13,7 @@ export interface User {
   role: UserRole;
   blocked: boolean;
   can_select_project_manually: boolean;
-  costCenters?: string[]; // Array of cost center IDs
+  costCenters?: CostCenter[];
 }
 
 export interface Project {
@@ -24,17 +23,19 @@ export interface Project {
   deadline: string;
   closed: boolean;
   estimated_hours?: number;
-  cost_center_id: string;
+  cost_center_id: number;
+  cost_center_name?: string;
 }
 
 export interface ActiveSession {
   id: number;
   user_id: string;
-  user_name: string;
   project_id: string;
-  project_name: string;
-  start_time: string; // Comes as ISO string from DB
-  cost_center_id: string;
+  start_time: string; // ISO string from database
+  // Joined data from frontend
+  userName?: string;
+  projectName?: string;
+  cost_center_name?: string;
 }
 
 export interface CompletedSession {
@@ -45,6 +46,13 @@ export interface CompletedSession {
   project_id: string;
   project_name: string;
   duration_minutes: number;
+}
+
+export interface QRCodeData {
+  type: 'user' | 'project';
+  id: string;
+  name: string;
+  content: string;
 }
 
 export interface UserBreakdown {

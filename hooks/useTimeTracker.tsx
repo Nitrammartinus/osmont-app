@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useContext, createContext, useCallb
 import { User, Project, ActiveSession, CompletedSession, View, ProjectEvaluationData } from '../types';
 import { INITIAL_USERS, INITIAL_PROJECTS } from '../constants';
 
-const formatTime = (milliseconds: number) => {
+// FIX: Export formatTime and add isNaN check for robustness.
+export const formatTime = (milliseconds: number) => {
+    if (isNaN(milliseconds)) return '00:00:00';
     const totalSeconds = Math.floor(milliseconds / 1000);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -10,7 +12,8 @@ const formatTime = (milliseconds: number) => {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
 
-const formatDuration = (minutes: number) => {
+// FIX: Export formatDuration to allow reuse in other components.
+export const formatDuration = (minutes: number) => {
     if (isNaN(minutes)) return '0h 0m';
     const hours = Math.floor(minutes / 60);
     const mins = Math.round(minutes % 60);

@@ -2,36 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom styles for the QR Scanner to create a clean scanning window */
+#qr-reader div:nth-child(1) {
+    border: none !important;
+}
+
+#qr-reader-results {
+    display: none;
+}
+
 #qr-reader {
     position: relative;
-    padding: 0 !important; /* Override default padding */
+    border-radius: 0.5rem; 
+    overflow: hidden;
 }
 
-/* Creates the overlay with a transparent window */
-#qr-reader::before {
+#qr-reader::after {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    /* This creates the transparent "window" using a complex box-shadow. */
+    top: 10%;
+    left: 10%;
+    width: 80%;
+    height: 80%;
+    border: 4px solid rgba(255, 255, 255, 0.8);
+    border-radius: 0.5rem;
     box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
-    /* Define the size and position of the transparent window */
-    width: 250px;
-    height: 250px;
-    margin: auto;
-    border: 4px solid white;
-    border-radius: 16px;
-    z-index: 1;
-}
-
-/* Hides the default animated scanning line */
-#qr-reader > div > span > div {
-    display: none !important;
-}
-
-#qr-reader video {
-    border-radius: 8px; /* Slightly round the video corners to match the container */
+    pointer-events: none;
 }

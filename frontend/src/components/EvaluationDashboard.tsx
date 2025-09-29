@@ -1,14 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { useTimeTracker } from '../hooks/useTimeTracker';
-import { ProjectEvaluationData, UserBreakdown, CompletedSession } from '../types';
-import { ChevronLeft, Clock, Users, Calendar, DollarSign, Download, BarChart3, TrendingUp, ArrowLeftRight, Target } from './Icons';
-
-const formatDuration = (minutes: number) => {
-    if (isNaN(minutes)) return '0h 0m';
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
-    return `${hours}h ${mins}m`;
-};
+import { useTimeTracker, formatDuration } from '../hooks/useTimeTracker';
+// FIX: Import the 'Project' type to resolve reference error.
+import { ProjectEvaluationData, UserBreakdown, CompletedSession, Project } from '../types';
+import { ChevronLeft, Clock, Users, Calendar, DollarSign, Download, BarChart3, TrendingUp, ArrowLeftRight } from './Icons';
 
 const TimeVariance: React.FC<{ variance: number | null }> = ({ variance }) => {
     if (variance === null) {
@@ -16,30 +10,31 @@ const TimeVariance: React.FC<{ variance: number | null }> = ({ variance }) => {
     }
     const hours = Math.abs(variance).toFixed(1);
     if (variance > 0) {
-        return <span className="font-semibold text-red-600">{hours}h nad limit</span>;
+        return <span className="font-semibold text-red-600">{hours}h presah</span>;
     }
     if (variance < 0) {
-        return <span className="font-semibold text-green-600">{hours}h pod limit</span>;
+        return <span className="font-semibold text-green-600">{hours}h úspora</span>;
     }
-    return <span className="font-semibold text-gray-700">Presne</span>;
+    return <span className="font-semibold text-gray-700">Presne podľa plánu</span>;
 }
 
 const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack: () => void; }> = ({ projectData, onBack }) => {
-    const exportProjectSessionsToCSV = () => {
-        const headers = ['Dátum', 'Čas', 'Zamestnanec', 'Trvanie (formát)', 'Trvanie (minúty)'];
+    const exportProjectSessionsToCSV = (sessions: CompletedSession[]) => {
+        if (sessions.length === 0) {
+            alert("Pre tento projekt nie sú žiadne relácie na export.");
+            return;
+        }
+        const headers = ['Dátum', 'Čas', 'Zamestnanec', 'Trvanie', 'Trvanie (minúty)'];
+        
         const csvContent = [
             headers.join(';'),
-            ...projectData.allSessions.map(session => {
-                const date = new Date(session.timestamp);
-                const row = [
-                    date.toLocaleDateString('sk-SK'),
-                    date.toLocaleTimeString('sk-SK'),
-                    `"${session.employee_name}"`,
-                    `"${formatDuration(session.duration_minutes)}"`,
-                    session.duration_minutes
-                ];
-                return row.join(';');
-            })
+            ...sessions.map(session => [
+                `"${new Date(session.timestamp).toLocaleDateString('sk-SK')}"`,
+                `"${new Date(session.timestamp).toLocaleTimeString('sk-SK')}"`,
+                `"${session.employee_name}"`,
+                `"${formatDuration(session.duration_minutes)}"`,
+                session.duration_minutes
+            ].join(';'))
         ].join('\n');
         
         const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
@@ -53,7 +48,7 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
         <div className="max-w-4xl mx-auto space-y-6">
             <button onClick={onBack} className="flex items-center text-sm text-blue-600 hover:underline mb-4">
                 <ChevronLeft className="w-4 h-4 mr-1" />
-                Späť na prehľad
+                Späť na prehľad vyhodnotení
             </button>
 
             <div className="bg-white rounded-2xl shadow-xl p-6">
@@ -63,19 +58,17 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
                     <InfoCard icon={<Clock />} label="Čas v období" value={formatDuration(projectData.totalTime)} />
                     <InfoCard icon={<Users />} label="Členovia tímu" value={projectData.uniqueUsers.toString()} />
                     <InfoCard icon={<Calendar />} label="Relácie v období" value={projectData.sessions.toString()} />
-                    <InfoCard icon={<DollarSign />} label="Cena / Hodina" value={`${projectData.costPerHour.toFixed(2)} €`} />
-                    <InfoCard icon={<Target />} label="Priebeh (podľa hodín)" value={projectData.workProgressPercentage !== null ? `${projectData.workProgressPercentage.toFixed(0)}%` : 'N/A'} />
-                    <InfoCard icon={<ArrowLeftRight />} label="Odchýlka odhadu" value={<TimeVariance variance={projectData.timeVariance} />} />
+                    <InfoCard icon={<DollarSign />} label="Cena / Hodina (celkovo)" value={`${projectData.costPerHour.toFixed(2)} €`} />
+                    <InfoCard icon={<TrendingUp />} label="Priebeh (podľa hodín)" value={projectData.workProgressPercentage !== null ? `${projectData.workProgressPercentage.toFixed(0)}%` : 'N/A'} />
+                    <InfoCard icon={<ArrowLeftRight />} label="Časová odchýlka (celkovo)" value={<TimeVariance variance={projectData.timeVariance} />} />
                 </div>
-                 {projectData.workProgressPercentage !== null && (
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 mt-4">
-                        <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${Math.min(100, projectData.workProgressPercentage)}%` }}></div>
-                    </div>
-                 )}
+                 <div className="w-full bg-gray-200 rounded-full h-2.5 mt-4">
+                    <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${projectData.workProgressPercentage || 0}%` }}></div>
+                </div>
             </div>
 
             <div className="bg-white rounded-2xl shadow-xl p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Čas podľa používateľov (v období)</h3>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Časové rozdelenie podľa používateľa (v období)</h3>
                 <div className="space-y-3">
                     {Object.values(projectData.userBreakdown).map((userData: UserBreakdown) => (
                         <div key={userData.name} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
@@ -92,14 +85,12 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
             <div className="bg-white rounded-2xl shadow-xl p-6">
                  <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-800">Všetky relácie (v období)</h3>
-                    {projectData.allSessions.length > 0 && 
-                        <button onClick={exportProjectSessionsToCSV} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm flex items-center">
-                            <Download className="w-4 h-4 mr-1" /> Exportovať
-                        </button>
-                    }
+                    <button onClick={() => exportProjectSessionsToCSV(projectData.allSessions)} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm flex items-center">
+                        <Download className="w-4 h-4 mr-1" /> Exportovať
+                    </button>
                  </div>
                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {projectData.allSessions.map((session: CompletedSession, index: number) => (
+                    {projectData.allSessions.map((session, index) => (
                         <div key={index} className="bg-gray-50 p-2 rounded-lg text-sm flex justify-between">
                             <span>{session.employee_name} dňa {new Date(session.timestamp).toLocaleDateString('sk-SK')}</span>
                             <span className="font-semibold">{formatDuration(session.duration_minutes)}</span>
@@ -122,67 +113,64 @@ const InfoCard: React.FC<{ icon: React.ReactElement<{ className?: string }>; lab
 );
 
 const EvaluationDashboard: React.FC = () => {
-    const { projectEvaluation, exportToExcel, completedSessions } = useTimeTracker();
+    const { completedSessions, projects, exportToExcel } = useTimeTracker();
     const [selectedProject, setSelectedProject] = useState<ProjectEvaluationData | null>(null);
     const [startDate, setStartDate] = useState<string>('');
     const [endDate, setEndDate] = useState<string>('');
-
-    const filteredCompletedSessions = useMemo(() => {
-        if (!startDate && !endDate) {
-            return completedSessions;
-        }
+    
+    const [filteredSessions, evaluationData] = useMemo(() => {
         const start = startDate ? new Date(startDate).setHours(0, 0, 0, 0) : 0;
         const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : Date.now();
         
-        return completedSessions.filter((session: CompletedSession) => {
+        const sessionsInPeriod = completedSessions.filter(session => {
             const sessionDate = new Date(session.timestamp).getTime();
             return sessionDate >= start && sessionDate <= end;
         });
-    }, [completedSessions, startDate, endDate]);
-    
-    const filteredEvaluationData = useMemo(() => {
-        const evaluationSource: ProjectEvaluationData[] = Object.values(projectEvaluation);
 
-        const filteredData = evaluationSource.map((project: ProjectEvaluationData) => {
-            const filteredSessions = project.allSessions.filter((session: CompletedSession) => {
-                const sessionDate = new Date(session.timestamp).getTime();
-                const start = startDate ? new Date(startDate).setHours(0, 0, 0, 0) : 0;
-                const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : Date.now();
-                return sessionDate >= start && sessionDate <= end;
-            });
+        const evaluation: Record<string, ProjectEvaluationData> = {};
+        projects.forEach((project: Project) => {
+            const projectSessions = sessionsInPeriod.filter(s => s.project_id === project.id);
+            const allProjectSessions = completedSessions.filter(s => s.project_id === project.id);
+            
+            const totalTimeInPeriod = projectSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
+            const totalLifetime = allProjectSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
 
-            const totalTime = filteredSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
-            const uniqueUsers = [...new Set(filteredSessions.map(s => s.employee_id))].length;
+            const totalLifetimeHours = totalLifetime / 60;
+            const uniqueUsersInPeriod = [...new Set(projectSessions.map(s => s.employee_id))].length;
 
-            const userBreakdown: Record<string, UserBreakdown> = {};
-            filteredSessions.forEach(session => {
+            const userBreakdown: ProjectEvaluationData['userBreakdown'] = {};
+            projectSessions.forEach(session => {
                 if (!userBreakdown[session.employee_id]) {
                     userBreakdown[session.employee_id] = { name: session.employee_name, totalTime: 0, sessions: 0 };
                 }
                 userBreakdown[session.employee_id].totalTime += session.duration_minutes;
                 userBreakdown[session.employee_id].sessions += 1;
             });
+            
+            const costPerHour = totalLifetimeHours > 0 ? project.budget / totalLifetimeHours : 0;
+            const timeVariance = project.estimated_hours != null ? totalLifetimeHours - project.estimated_hours : null;
+            const workProgressPercentage = project.estimated_hours ? (totalLifetimeHours / project.estimated_hours) * 100 : null;
 
-            return {
-                ...project, 
-                totalTime: totalTime,
-                uniqueUsers: uniqueUsers,
-                sessions: filteredSessions.length,
-                averageSession: filteredSessions.length > 0 ? totalTime / filteredSessions.length : 0,
-                userBreakdown: userBreakdown,
-                allSessions: filteredSessions,
-            };
+            if (projectSessions.length > 0) { // Only show projects with activity in the period
+                evaluation[project.id] = {
+                    ...project,
+                    totalTime: totalTimeInPeriod,
+                    uniqueUsers: uniqueUsersInPeriod,
+                    sessions: projectSessions.length,
+                    averageSession: projectSessions.length > 0 ? totalTimeInPeriod / projectSessions.length : 0,
+                    userBreakdown,
+                    allSessions: projectSessions,
+                    costPerHour,
+                    workProgressPercentage,
+                    timeVariance,
+                };
+            }
         });
-
-        // Show only projects that had activity in the selected period
-        return filteredData.filter(p => p.sessions > 0);
-
-    }, [projectEvaluation, startDate, endDate]);
-
-    const totalTrackedTime = filteredCompletedSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
+        return [sessionsInPeriod, Object.values(evaluation)];
+    }, [projects, completedSessions, startDate, endDate]);
 
     if (selectedProject) {
-        const updatedProjectData = filteredEvaluationData.find(p => p.id === selectedProject.id);
+        const updatedProjectData = evaluationData.find((p: ProjectEvaluationData) => p.id === selectedProject.id);
         if(updatedProjectData) {
             return <ProjectDetailsView projectData={updatedProjectData} onBack={() => setSelectedProject(null)} />;
         }
@@ -195,9 +183,9 @@ const EvaluationDashboard: React.FC = () => {
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center">
                     <div>
                         <h2 className="text-xl font-bold text-gray-800">Celkový Prehľad</h2>
-                        <p className="text-gray-600">Celkový čas v období: {formatDuration(totalTrackedTime)}</p>
+                        <p className="text-gray-600">Celkový čas v období: {formatDuration(filteredSessions.reduce((sum, s) => sum + s.duration_minutes, 0))}</p>
                     </div>
-                    <button onClick={() => exportToExcel(filteredCompletedSessions)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm flex items-center mt-4 sm:mt-0">
+                    <button onClick={() => exportToExcel(filteredSessions)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm flex items-center mt-4 sm:mt-0">
                         <Download className="w-4 h-4 mr-2" /> Exportovať Všetky Dáta
                     </button>
                 </div>
@@ -213,7 +201,7 @@ const EvaluationDashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredEvaluationData.map((project: ProjectEvaluationData) => (
+                {evaluationData.map((project: ProjectEvaluationData) => (
                     <div key={project.id} onClick={() => setSelectedProject(project)} className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 flex flex-col">
                         <div className="flex-grow">
                             <div className="flex justify-between items-start mb-2">
@@ -226,36 +214,32 @@ const EvaluationDashboard: React.FC = () => {
                                 </div>
                             </div>
                              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                                <div className="flex items-center"><Users className="w-4 h-4 mr-2 text-gray-500" /> {project.uniqueUsers} Členov</div>
-                                <div className="flex items-center"><Calendar className="w-4 h-4 mr-2 text-gray-500" /> {project.sessions} Relácií</div>
-                                <div className="flex items-center col-span-2"><DollarSign className="w-4 h-4 mr-2 text-gray-500" /> Rozpočet: {project.budget.toLocaleString()} €</div>
+                                <div className="flex items-center"><Users className="w-4 h-4 mr-2 text-gray-500" /> {project.uniqueUsers} Členovia</div>
+                                <div className="flex items-center"><Calendar className="w-4 h-4 mr-2 text-gray-500" /> {project.sessions} Relácie</div>
+                                <div className="flex items-center col-span-2"><DollarSign className="w-4 h-4 mr-2 text-gray-500" /> Rozpočet: {project.budget.toLocaleString('sk-SK')} €</div>
                              </div>
                         </div>
 
                         <div className="mt-auto">
-                            {project.workProgressPercentage !== null && (
-                                <>
-                                <div className="flex justify-between items-center text-xs text-gray-600 mb-1">
-                                    <span>Priebeh (podľa hodín)</span>
-                                    <span>{project.workProgressPercentage.toFixed(0)}%</span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${Math.min(100, project.workProgressPercentage)}%` }}></div>
-                                </div>
-                                </>
-                            )}
+                            <div className="flex justify-between items-center text-xs text-gray-600 mb-1">
+                                <span>Priebeh (podľa hodín)</span>
+                                <span>{project.workProgressPercentage !== null ? `${project.workProgressPercentage.toFixed(0)}%` : 'N/A'}</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${project.workProgressPercentage || 0}%` }}></div>
+                            </div>
                              <div className="mt-4 text-center">
-                                 <span className="text-blue-600 text-sm font-medium flex items-center justify-center">Zobraziť Detail <BarChart3 className="w-4 h-4 ml-1" /></span>
+                                 <span className="text-blue-600 text-sm font-medium flex items-center justify-center">Zobraziť Detaily <BarChart3 className="w-4 h-4 ml-1" /></span>
                              </div>
                         </div>
                     </div>
                 ))}
             </div>
-            {filteredEvaluationData.length === 0 && (
+            {evaluationData.length === 0 && (
                  <div className="text-center py-16 bg-white rounded-2xl shadow-xl">
                     <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-700">Žiadne dáta projektu</h3>
-                    <p className="text-gray-500 mt-2">Pre zvolené obdobie neexistuje žiadna aktivita.</p>
+                    <h3 className="text-xl font-semibold text-gray-700">Žiadne dáta o projektoch</h3>
+                    <p className="text-gray-500 mt-2">Pre zvolené časové obdobie neexistuje žiadna aktivita.</p>
                 </div>
             )}
         </div>

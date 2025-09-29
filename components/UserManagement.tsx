@@ -37,7 +37,18 @@ const UserManagement: React.FC = () => {
             alert('Username already exists.');
             return;
         }
-        setUsers(prev => prev.map(u => u.id === editingUser.id ? editingUser : u));
+        // FIX: Prevent accidental password clearing when updating a user.
+        setUsers(prev => prev.map(u => {
+            if (u.id === editingUser.id) {
+                const { password, ...restOfEditingUser } = editingUser;
+                const userToUpdate = { ...u, ...restOfEditingUser };
+                if (password) { // only update if new password is not empty
+                    userToUpdate.password = password;
+                }
+                return userToUpdate;
+            }
+            return u;
+        }));
         setEditingUser(null);
     };
 

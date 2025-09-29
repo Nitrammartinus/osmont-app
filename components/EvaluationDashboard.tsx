@@ -1,14 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { useTimeTracker } from '../hooks/useTimeTracker';
+// FIX: Import shared formatDuration function
+import { useTimeTracker, formatDuration } from '../hooks/useTimeTracker';
 import { ProjectEvaluationData, UserBreakdown, CompletedSession } from '../types';
 import { ChevronLeft, Clock, Users, Calendar, DollarSign, Download, BarChart3, TrendingUp, ArrowLeftRight } from './Icons';
 
-const formatDuration = (minutes: number) => {
-    if (isNaN(minutes)) return '0h 0m';
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
-    return `${hours}h ${mins}m`;
-};
+// FIX: Removed redundant local formatDuration function.
 
 const TimeVariance: React.FC<{ variance: number | null }> = ({ variance }) => {
     if (variance === null) {
