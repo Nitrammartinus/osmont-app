@@ -49,7 +49,7 @@ apiRouter.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Neplatné používateľské meno alebo heslo.' });
         }
         
-        // CRITICAL FIX: Fetch and attach cost centers to the user object on login
+        // FIX: Stale comment removed, functionality is correct.
         const costCenters = await getUserCostCenters(user.id);
         const { password: _, ...userWithoutPassword } = user;
 
