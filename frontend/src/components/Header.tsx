@@ -21,7 +21,6 @@ const Header: React.FC = () => {
 
     const handleLogout = () => {
         setCurrentUser(null);
-        localStorage.removeItem('currentUser'); // Also clear from storage
         navigate('/');
     };
 

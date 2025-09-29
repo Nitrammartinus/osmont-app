@@ -1,5 +1,3 @@
-// FIX: Replaced corrupted file with correct type definitions for the application.
-
 export type UserRole = 'employee' | 'manager' | 'admin';
 
 export interface CostCenter {

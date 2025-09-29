@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { useTimeTracker, formatDuration } from '../hooks/useTimeTracker';
-// FIX: Import the 'Project' type to resolve reference error.
 import { ProjectEvaluationData, UserBreakdown, CompletedSession, Project } from '../types';
 import { ChevronLeft, Clock, Users, Calendar, DollarSign, Download, BarChart3, TrendingUp, ArrowLeftRight } from './Icons';
 
@@ -122,24 +121,24 @@ const EvaluationDashboard: React.FC = () => {
         const start = startDate ? new Date(startDate).setHours(0, 0, 0, 0) : 0;
         const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : Date.now();
         
-        const sessionsInPeriod = completedSessions.filter(session => {
+        const sessionsInPeriod = completedSessions.filter((session: CompletedSession) => {
             const sessionDate = new Date(session.timestamp).getTime();
             return sessionDate >= start && sessionDate <= end;
         });
 
         const evaluation: Record<string, ProjectEvaluationData> = {};
         projects.forEach((project: Project) => {
-            const projectSessions = sessionsInPeriod.filter(s => s.project_id === project.id);
+            const projectSessionsInPeriod = sessionsInPeriod.filter(s => s.project_id === project.id);
             const allProjectSessions = completedSessions.filter(s => s.project_id === project.id);
             
-            const totalTimeInPeriod = projectSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
+            const totalTimeInPeriod = projectSessionsInPeriod.reduce((sum, s) => sum + s.duration_minutes, 0);
             const totalLifetime = allProjectSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
 
             const totalLifetimeHours = totalLifetime / 60;
-            const uniqueUsersInPeriod = [...new Set(projectSessions.map(s => s.employee_id))].length;
+            const uniqueUsersInPeriod = [...new Set(projectSessionsInPeriod.map(s => s.employee_id))].length;
 
             const userBreakdown: ProjectEvaluationData['userBreakdown'] = {};
-            projectSessions.forEach(session => {
+            projectSessionsInPeriod.forEach(session => {
                 if (!userBreakdown[session.employee_id]) {
                     userBreakdown[session.employee_id] = { name: session.employee_name, totalTime: 0, sessions: 0 };
                 }
@@ -151,15 +150,15 @@ const EvaluationDashboard: React.FC = () => {
             const timeVariance = project.estimated_hours != null ? totalLifetimeHours - project.estimated_hours : null;
             const workProgressPercentage = project.estimated_hours ? (totalLifetimeHours / project.estimated_hours) * 100 : null;
 
-            if (projectSessions.length > 0) { // Only show projects with activity in the period
+            if (projectSessionsInPeriod.length > 0) {
                 evaluation[project.id] = {
                     ...project,
                     totalTime: totalTimeInPeriod,
                     uniqueUsers: uniqueUsersInPeriod,
-                    sessions: projectSessions.length,
-                    averageSession: projectSessions.length > 0 ? totalTimeInPeriod / projectSessions.length : 0,
+                    sessions: projectSessionsInPeriod.length,
+                    averageSession: projectSessionsInPeriod.length > 0 ? totalTimeInPeriod / projectSessionsInPeriod.length : 0,
                     userBreakdown,
-                    allSessions: projectSessions,
+                    allSessions: projectSessionsInPeriod,
                     costPerHour,
                     workProgressPercentage,
                     timeVariance,

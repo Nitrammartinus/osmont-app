@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-import { User as UserType, ActiveSession as ActiveSessionType, Project, CostCenter } from '../types';
-import { User, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle, Clock, Building2 } from './Icons';
+import { User as UserType, ActiveSession as ActiveSessionType } from '../types';
+import { User, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle, Building2 } from './Icons';
 import QRCodeScanner from './QRCodeScanner';
 
 const formatTime = (startTime: string) => {
@@ -153,8 +153,7 @@ const StartTracking: React.FC = () => {
 };
 
 const ActiveSessions: React.FC = () => {
-    // FIX: Removed unused and non-existent 'setCostCenters' from context.
-    const { activeSessions, costCenters } = useTimeTracker(); // Placeholder, assuming these come from context
+    const { activeSessions, costCenters } = useTimeTracker();
     const [timers, setTimers] = useState<Record<number, string>>({});
     const [selectedCenterId, setSelectedCenterId] = useState<string>('all');
 

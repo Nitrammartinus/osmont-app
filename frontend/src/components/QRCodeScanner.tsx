@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { X } from './Icons';
-import { Html5Qrcode, Html5QrcodeScanType } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 
 interface QRCodeScannerProps {
     onScanSuccess: (decodedText: string) => void;
@@ -26,7 +26,6 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScanSuccess, onClose })
                             const qrboxSize = Math.floor(minEdge * 0.7);
                             return { width: qrboxSize, height: qrboxSize };
                         },
-                        // FIX: Removed unsupported 'supportedScanTypes' property.
                     },
                     (decodedText: string) => {
                         if (scannerRunning) {
@@ -50,7 +49,6 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScanSuccess, onClose })
 
         return () => {
             scannerRunning = false;
-            // Use .isScanning to prevent errors if the scanner never started
             if (html5QrCode && html5QrCode.isScanning) {
                 html5QrCode.stop().catch((err: any) => console.error("Nepodarilo sa zastaviť skener", err));
             }

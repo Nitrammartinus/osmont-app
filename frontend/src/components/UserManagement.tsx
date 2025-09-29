@@ -177,7 +177,7 @@ const UserManagement: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex items-center space-x-2 mt-2 sm:mt-0">
-                                {user.role === 'employee' && (
+                                {user.role !== 'admin' && user.role !== 'manager' && (
                                     <button onClick={() => generateQRCode(user)} title="QR Kód" className="p-2 text-gray-500 hover:bg-blue-100 hover:text-blue-600 rounded-full"><QrCode className="w-4 h-4" /></button>
                                 )}
                                 <button onClick={() => setEditingUser(user)} title="Upraviť" className="p-2 text-gray-500 hover:bg-yellow-100 hover:text-yellow-600 rounded-full"><Edit className="w-4 h-4" /></button>

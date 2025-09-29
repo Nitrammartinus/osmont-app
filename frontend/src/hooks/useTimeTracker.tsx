@@ -1,6 +1,6 @@
-// FIX: Replaced corrupted file with a new hook that connects to the backend API.
 import React, { useState, useEffect, useContext, createContext, useCallback } from 'react';
-import { User, Project, ActiveSession, CompletedSession, CostCenter } from '../types';
+import { User, Project, ActiveSession, CompletedSession, CostCenter, UserRole } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 export const formatDuration = (minutes: number) => {
     if (isNaN(minutes)) return '0h 0m';
@@ -9,7 +9,7 @@ export const formatDuration = (minutes: number) => {
     return `${hours}h ${mins}m`;
 };
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface TimeTrackerContextType {
     currentUser: User | null;
@@ -21,8 +21,8 @@ interface TimeTrackerContextType {
     costCenters: CostCenter[];
     userForStopConfirmation: User | null;
     setUserForStopConfirmation: React.Dispatch<React.SetStateAction<User | null>>;
+    isLoading: boolean;
     
-    // API functions
     handleManualLogin: (username: string, password: string) => Promise<boolean>;
     processQRCode: (qrText: string) => Promise<void>;
     startSession: (projectId: string) => Promise<void>;
@@ -60,9 +60,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         try {
             const storedUser = localStorage.getItem('currentUser');
             return storedUser ? JSON.parse(storedUser) : null;
-        } catch {
-            return null;
-        }
+        } catch { return null; }
     });
     const [users, setUsers] = useState<User[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -70,30 +68,62 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [completedSessions, setCompletedSessions] = useState<CompletedSession[]>([]);
     const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
     const [userForStopConfirmation, setUserForStopConfirmation] = useState<User | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const navigate = useNavigate();
+
+    const getAuthHeaders = () => {
+        if (!currentUser) return {};
+        return {
+            'X-User-Id': currentUser.id,
+            'X-User-Role': currentUser.role,
+        };
+    };
 
     const fetchData = useCallback(async () => {
+        if (!currentUser) {
+            // Fetch only public/general data if needed, or do nothing
+            // For this app, only active sessions are relevant when not logged in
+             try {
+                const activeRes = await fetch(`${API_URL}/sessions/active`);
+                setActiveSessions(await activeRes.json());
+            } catch (error) {
+                 console.error("Failed to fetch active sessions", error);
+            }
+            setIsLoading(false);
+            return;
+        };
+
+        setIsLoading(true);
         try {
-            // In a real app, you'd protect these routes and use a token from login
+            const headers = getAuthHeaders();
             const [usersRes, projectsRes, activeRes, completedRes, centersRes] = await Promise.all([
-                fetch(`${API_URL}/users`),
-                fetch(`${API_URL}/projects`),
-                fetch(`${API_URL}/sessions/active`),
-                fetch(`${API_URL}/sessions/completed`),
-                fetch(`${API_URL}/cost-centers`),
+                fetch(`${API_URL}/users`, { headers }),
+                fetch(`${API_URL}/projects`, { headers }),
+                fetch(`${API_URL}/sessions/active`, { headers }),
+                fetch(`${API_URL}/sessions/completed`, { headers }),
+                fetch(`${API_URL}/cost-centers`, { headers }),
             ]);
+
+            if (!usersRes.ok || !projectsRes.ok || !activeRes.ok || !completedRes.ok || !centersRes.ok) {
+                throw new Error('Network response was not ok');
+            }
+
             setUsers(await usersRes.json());
             setProjects(await projectsRes.json());
             setActiveSessions(await activeRes.json());
             setCompletedSessions(await completedRes.json());
             setCostCenters(await centersRes.json());
         } catch (error) {
-            console.error("Failed to fetch initial data", error);
+            console.error("Nepodarilo sa načítať dáta zo servera.", error);
+            alert("Nepodarilo sa načítať dáta zo servera. Skúste obnoviť stránku.");
+        } finally {
+            setIsLoading(false);
         }
-    }, []);
+    }, [currentUser]);
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 30000); // Poll for updates every 30 seconds
+        const interval = setInterval(fetchData, 10000); // Poll for updates every 10 seconds
         return () => clearInterval(interval);
     }, [fetchData]);
 
@@ -112,54 +142,124 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),
             });
-            if (!response.ok) {
-                const error = await response.json();
-                alert(error.message);
-                return false;
-            }
+            if (!response.ok) { return false; }
             const user: User = await response.json();
-            const existingSession = activeSessions.find(session => session.user_id === user.id);
+            const existingSession = (await (await fetch(`${API_URL}/sessions/active`)).json()).find((s: ActiveSession) => s.user_id === user.id);
             if (existingSession) {
                 setUserForStopConfirmation(user);
             } else {
                 setCurrentUser(user);
             }
             return true;
-        } catch (error) {
-            console.error("Login failed", error);
-            alert("Chyba pri prihlasovaní.");
-            return false;
+        } catch (error) { return false; }
+    };
+    
+    const processQRCode = async (qrText: string) => {
+        const trimmedText = qrText.trim();
+        if (trimmedText.startsWith('USER_ID:')) {
+            const userId = trimmedText.substring('USER_ID:'.length);
+            const response = await fetch(`${API_URL}/users/${userId}`); // Need a get user by ID endpoint
+             if(response.ok) {
+                const user: User = await response.json();
+                if (user.blocked) {
+                    alert("Tento používateľ je zablokovaný."); return;
+                }
+                const existingSession = activeSessions.find(s => s.user_id === user.id);
+                if (existingSession) {
+                    setUserForStopConfirmation(user);
+                } else {
+                    setCurrentUser(user);
+                }
+            } else {
+                alert("Neplatný QR kód používateľa.");
+            }
+        } else if (trimmedText.startsWith('PROJECT_ID:')) {
+            if (!currentUser) { alert("Prosím, prihláste sa pred skenovaním projektu."); return; }
+            const projectId = trimmedText.substring('PROJECT_ID:'.length);
+            await startSession(projectId);
+        } else {
+            alert("Nerozpoznaný formát QR kódu.");
         }
     };
     
-    // Implement other functions here...
-    const processQRCode = async (qrText: string) => { /* ... */ };
-    const startSession = async (projectId: string) => { /* ... */ };
-    const stopSessionForUser = async (user: User) => { /* ... */ };
+    const startSession = async (projectId: string) => {
+        if (!currentUser) return;
+        
+        // Frontend check for closed project
+        const project = projects.find(p => p.id === projectId);
+        if (project && project.closed) {
+            alert("Projekt je uzatvorený a nie je možné preň spustiť novú reláciu.");
+            return;
+        }
 
-    const addUser = async (userData: Partial<User>) => { await fetch(`${API_URL}/users`, { method: 'POST', /*...*/ }); fetchData(); };
-    const updateUser = async (user: User) => { await fetch(`${API_URL}/users/${user.id}`, { method: 'PUT', /*...*/ }); fetchData(); };
-    const deleteUser = async (userId: string) => { if (window.confirm('Naozaj chcete zmazať tohto používateľa?')) { await fetch(`${API_URL}/users/${userId}`, { method: 'DELETE' }); fetchData(); }};
-    const toggleUserBlock = async (userId: string) => { await fetch(`${API_URL}/users/${userId}/toggle-block`, { method: 'PUT' }); fetchData(); };
+        try {
+            const response = await fetch(`${API_URL}/sessions/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify({ userId: currentUser.id, projectId }),
+            });
+            if (response.ok) {
+                setCurrentUser(null);
+                fetchData();
+            } else {
+                const error = await response.json();
+                alert(`Chyba: ${error.message}`);
+            }
+        } catch (error) {
+            alert("Chyba pri spúšťaní relácie.");
+        }
+    };
+
+    const stopSessionForUser = async (user: User) => {
+        try {
+            const response = await fetch(`${API_URL}/sessions/stop`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify({ userId: user.id }),
+            });
+            if (response.ok) {
+                fetchData();
+            } else {
+                 const error = await response.json();
+                alert(`Chyba: ${error.message}`);
+            }
+        } catch (error) {
+            alert("Chyba pri zastavovaní relácie.");
+        }
+    };
+
+    const addUser = async (userData: Partial<User>) => { await fetch(`${API_URL}/users`, { method: 'POST', headers: {'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify(userData) }); fetchData(); };
+    const updateUser = async (user: User) => { await fetch(`${API_URL}/users/${user.id}`, { method: 'PUT', headers: {'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify(user) }); fetchData(); };
+    const deleteUser = async (userId: string) => { if (window.confirm('Naozaj chcete zmazať tohto používateľa?')) { await fetch(`${API_URL}/users/${userId}`, { method: 'DELETE', headers: getAuthHeaders() }); fetchData(); }};
+    const toggleUserBlock = async (userId: string) => { await fetch(`${API_URL}/users/${userId}/toggle-block`, { method: 'PUT', headers: getAuthHeaders() }); fetchData(); };
     
-    const addProject = async (projectData: Partial<Project>) => { await fetch(`${API_URL}/projects`, { method: 'POST', /*...*/}); fetchData(); };
-    const updateProject = async (project: Project) => { await fetch(`${API_URL}/projects/${project.id}`, { method: 'PUT', /*...*/ }); fetchData(); };
-    const deleteProject = async (projectId: string) => { if (window.confirm('Naozaj chcete zmazať tento projekt?')) { await fetch(`${API_URL}/projects/${projectId}`, { method: 'DELETE' }); fetchData(); }};
-    const toggleProjectStatus = async (projectId: string) => { await fetch(`${API_URL}/projects/${projectId}/toggle-status`, { method: 'PUT' }); fetchData(); };
+    const addProject = async (projectData: Partial<Project>) => { await fetch(`${API_URL}/projects`, { method: 'POST', headers: {'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify(projectData)}); fetchData(); };
+    const updateProject = async (project: Project) => { await fetch(`${API_URL}/projects/${project.id}`, { method: 'PUT', headers: {'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify(project) }); fetchData(); };
+    const deleteProject = async (projectId: string) => { if (window.confirm('Naozaj chcete zmazať tento projekt?')) { await fetch(`${API_URL}/projects/${projectId}`, { method: 'DELETE', headers: getAuthHeaders() }); fetchData(); }};
+    const toggleProjectStatus = async (projectId: string) => { await fetch(`${API_URL}/projects/${projectId}/toggle-status`, { method: 'PUT', headers: getAuthHeaders() }); fetchData(); };
 
-    const addCostCenter = async (name: string) => { await fetch(`${API_URL}/cost-centers`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) }); fetchData(); };
-    const updateCostCenter = async (center: CostCenter) => { await fetch(`${API_URL}/cost-centers/${center.id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name: center.name }) }); fetchData(); };
-    const deleteCostCenter = async (centerId: number) => { await fetch(`${API_URL}/cost-centers/${centerId}`, { method: 'DELETE' }); fetchData(); };
+    const addCostCenter = async (name: string) => { await fetch(`${API_URL}/cost-centers`, { method: 'POST', headers: {'Content-Type': 'application/json', ...getAuthHeaders()}, body: JSON.stringify({ name }) }); fetchData(); };
+    const updateCostCenter = async (center: CostCenter) => { await fetch(`${API_URL}/cost-centers/${center.id}`, { method: 'PUT', headers: {'Content-Type': 'application/json', ...getAuthHeaders()}, body: JSON.stringify({ name: center.name }) }); fetchData(); };
+    const deleteCostCenter = async (centerId: number) => { await fetch(`${API_URL}/cost-centers/${centerId}`, { method: 'DELETE', headers: getAuthHeaders() }); fetchData(); };
 
     const exportToExcel = (sessionsToExport: CompletedSession[]) => {
         if (sessionsToExport.length === 0) {
             alert('Žiadne relácie na export!');
             return;
         }
-        const headers = ['Timestamp', 'Employee ID', 'Employee Name', 'Project ID', 'Project Name', 'Duration (minutes)'];
+        const headers = ['Dátum', 'Čas', 'ID Zamestnanca', 'Meno Zamestnanca', 'ID Projektu', 'Názov Projektu', 'Trvanie (minúty)', 'Trvanie'];
         const csvContent = [
             headers.join(';'),
-            ...sessionsToExport.map(s => `"${new Date(s.timestamp).toLocaleString('sk-SK')}";"${s.employee_id}";"${s.employee_name}";"${s.project_id}";"${s.project_name}";${s.duration_minutes}`)
+            ...sessionsToExport.map(s => [
+                `"${new Date(s.timestamp).toLocaleDateString('sk-SK')}"`,
+                 `"${new Date(s.timestamp).toLocaleTimeString('sk-SK')}"`,
+                `"${s.employee_id}"`,
+                `"${s.employee_name}"`,
+                `"${s.project_id}"`,
+                `"${s.project_name}"`,
+                s.duration_minutes,
+                `"${formatDuration(s.duration_minutes)}"`
+            ].join(';'))
         ].join('\n');
         const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
@@ -177,6 +277,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         addProject, updateProject, deleteProject, toggleProjectStatus,
         addCostCenter, updateCostCenter, deleteCostCenter,
         exportToExcel,
+        isLoading,
     };
 
     return <TimeTrackerContext.Provider value={value}>{children}</TimeTrackerContext.Provider>;
