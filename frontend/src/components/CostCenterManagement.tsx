@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
 import { CostCenter } from '../types';
-import { Building2, Edit, Trash2, Plus, Check } from './Icons';
+import { Building2, Edit, Trash2, Plus, Check, X } from './Icons';
 
 const CostCenterManagement: React.FC = () => {
+    // FIX: Add missing functions and state from context
     const { costCenters, addCostCenter, updateCostCenter, deleteCostCenter } = useTimeTracker();
     const [newCenterName, setNewCenterName] = useState('');
     const [editingCenter, setEditingCenter] = useState<CostCenter | null>(null);
@@ -28,6 +29,17 @@ const CostCenterManagement: React.FC = () => {
         setEditingCenter(center);
         setEditingName(center.name);
     };
+    
+    const cancelEditing = () => {
+        setEditingCenter(null);
+        setEditingName('');
+    }
+
+    const handleDelete = (id: number) => {
+        if (window.confirm('Naozaj chcete vymazať toto stredisko? Táto akcia môže ovplyvniť existujúce projekty a používateľov.')) {
+            deleteCostCenter(id);
+        }
+    }
 
     return (
         <div className="max-w-2xl mx-auto space-y-6">
@@ -57,6 +69,7 @@ const CostCenterManagement: React.FC = () => {
                                     onChange={(e) => setEditingName(e.target.value)}
                                     className="flex-grow p-1 border rounded-md"
                                     autoFocus
+                                    onKeyDown={(e) => e.key === 'Enter' && handleUpdate()}
                                 />
                             ) : (
                                 <div className="flex items-center">
@@ -68,12 +81,12 @@ const CostCenterManagement: React.FC = () => {
                                 {editingCenter?.id === center.id ? (
                                     <>
                                         <button onClick={handleUpdate} title="Uložiť" className="p-2 text-green-600 hover:bg-green-100 rounded-full"><Check className="w-4 h-4" /></button>
-                                        <button onClick={() => setEditingCenter(null)} title="Zrušiť" className="p-2 text-red-600 hover:bg-red-100 rounded-full"><Trash2 className="w-4 h-4" /></button>
+                                        <button onClick={cancelEditing} title="Zrušiť" className="p-2 text-red-600 hover:bg-red-100 rounded-full"><X className="w-4 h-4" /></button>
                                     </>
                                 ) : (
                                     <>
                                         <button onClick={() => startEditing(center)} title="Upraviť" className="p-2 text-gray-500 hover:bg-yellow-100 hover:text-yellow-600 rounded-full"><Edit className="w-4 h-4" /></button>
-                                        <button onClick={() => deleteCostCenter(center.id)} title="Vymazať" className="p-2 text-gray-500 hover:bg-red-100 hover:text-red-600 rounded-full"><Trash2 className="w-4 h-4" /></button>
+                                        <button onClick={() => handleDelete(center.id)} title="Vymazať" className="p-2 text-gray-500 hover:bg-red-100 hover:text-red-600 rounded-full"><Trash2 className="w-4 h-4" /></button>
                                     </>
                                 )}
                             </div>

@@ -1,6 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-import { User as UserType, Project } from '../types';
 import { User as UserIcon, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle, ChevronDown } from './Icons';
 import QRCodeScanner from './QRCodeScanner';
 
@@ -14,9 +13,11 @@ const Login: React.FC = () => {
 
     const onLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        await handleManualLogin(username, password);
-        setUsername('');
-        setPassword('');
+        const success = await handleManualLogin(username, password);
+        if (success) {
+            setUsername('');
+            setPassword('');
+        }
     };
 
     const handleScanSuccess = async (decodedText: string) => {
@@ -71,6 +72,7 @@ const Login: React.FC = () => {
 
 
 const StartTracking: React.FC = () => {
+    // FIX: Add startSession to destructured props
     const { processQRCode, currentUser, projects, startSession } = useTimeTracker();
     const [isScanning, setIsScanning] = useState(false);
     
@@ -95,6 +97,7 @@ const StartTracking: React.FC = () => {
                         <h3 className="font-semibold text-gray-700 mb-2">Manuálny výber projektu</h3>
                         <div className="relative">
                              <select
+                                // FIX: Call startSession with project ID
                                 onChange={(e) => { if(e.target.value) startSession(e.target.value) }}
                                 className="w-full appearance-none bg-white border border-gray-300 rounded-lg px-4 py-3 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 defaultValue=""
@@ -123,6 +126,7 @@ const StartTracking: React.FC = () => {
 };
 
 const ActiveSessions: React.FC = () => {
+    // FIX: Add costCenters to destructured props
     const { activeSessions, sessionTimers, projects, costCenters } = useTimeTracker();
     const [filter, setFilter] = useState<string>('all');
 
@@ -198,6 +202,7 @@ const ActiveSessions: React.FC = () => {
 };
 
 const MainTrackingView: React.FC = () => {
+    // FIX: Add isLoading and error to destructured props
     const { currentUser, setCurrentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers, isLoading, error } = useTimeTracker();
     const userHasActiveSession = activeSessions.some(s => s.userId === currentUser?.id);
 
