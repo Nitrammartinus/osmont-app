@@ -29,7 +29,12 @@ interface TimeTrackerContextType {
     addCostCenter: (name: string) => Promise<void>;
     updateCostCenter: (id: number, name: string) => Promise<void>;
     deleteCostCenter: (id: number) => Promise<void>;
+    addUser: (user: Omit<User, 'id' | 'blocked' | 'costCenters'> & { costCenters: number[] }) => Promise<void>;
     updateUser: (user: User) => Promise<void>;
+    deleteUser: (userId: string) => Promise<void>;
+    addProject: (project: Omit<Project, 'id' | 'closed'>) => Promise<void>;
+    updateProject: (project: Project) => Promise<void>;
+    deleteProject: (projectId: string) => Promise<void>;
     toggleProjectStatus: (projectId: string) => Promise<void>;
 }
 
@@ -62,7 +67,9 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         try {
             const response = await fetch(`${API_URL}/initial-data`);
             if (!response.ok) {
-                throw new Error('Nepodarilo sa načítať dáta zo servera.');
+                const errorHtml = await response.text();
+                console.error("Server Error HTML:", errorHtml)
+                throw new Error(`Nepodarilo sa načítať dáta zo servera. ${response.statusText}`);
             }
             const data = await response.json();
             setUsers(data.users);
@@ -70,7 +77,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             setCostCenters(data.costCenters);
             setCompletedSessions(data.completedSessions);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+             setError(err instanceof Error ? err.message : 'An unknown error occurred.');
         } finally {
             setIsLoading(false);
         }
@@ -190,7 +197,8 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             await fetchActiveSessions();
             setCurrentUser(null);
         } catch (err) {
-            alert(err instanceof Error ? err.message : 'An unknown error occurred.');
+            // No alert needed, just log out the user
+            setCurrentUser(null);
         }
     };
 
@@ -202,7 +210,6 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             });
             if (!response.ok) throw new Error('Nepodarilo sa ukončiť reláciu.');
             
-            // Refetch both active and completed sessions to ensure UI is up-to-date
             await fetchActiveSessions();
             const completedResponse = await fetch(`${API_URL}/initial-data`);
             const data = await completedResponse.json();
@@ -253,7 +260,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             
             const costPerHour = totalHours > 0 && project.budget ? project.budget / totalHours : 0;
             const timeVariance = project.estimated_hours != null ? totalHours - project.estimated_hours : null;
-            const workProgressPercentage = project.estimated_hours && project.estimated_hours > 0 ? (totalHours / project.estimated_hours) * 100 : null;
+            const workProgressPercentage = project.estimated_hours && project.estimated_hours > 0 ? (totalHours / project.estimated_hours) * 100 : 0;
 
 
             evaluation[project.id] = {
@@ -310,6 +317,20 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
     };
     
+    // --- User Management ---
+    const addUser = async (user: Omit<User, 'id' | 'blocked' | 'costCenters'> & { costCenters: number[] }) => {
+        const response = await fetch(`${API_URL}/users`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(user),
+        });
+        if (response.ok) {
+            const newUser = await response.json();
+            setUsers(prev => [...prev, newUser].sort((a,b) => a.name.localeCompare(b.name)));
+        } else {
+             alert((await response.json()).message || "Nepodarilo sa pridať používateľa.");
+        }
+    };
     const updateUser = async (userToUpdate: User) => {
         const response = await fetch(`${API_URL}/users/${userToUpdate.id}`, {
             method: 'PUT',
@@ -323,7 +344,54 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
              alert("Nepodarilo sa upraviť používateľa.");
         }
     };
-    
+    const deleteUser = async (userId: string) => {
+        if (window.confirm('Naozaj chcete vymazať tohto používateľa?')) {
+            const response = await fetch(`${API_URL}/users/${userId}`, { method: 'DELETE' });
+            if (response.ok) {
+                setUsers(prev => prev.filter(u => u.id !== userId));
+            } else {
+                alert("Nepodarilo sa vymazať používateľa.");
+            }
+        }
+    };
+
+    // --- Project Management ---
+     const addProject = async (project: Omit<Project, 'id' | 'closed'>) => {
+        const response = await fetch(`${API_URL}/projects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(project),
+        });
+        if (response.ok) {
+            const newProject = await response.json();
+            setProjects(prev => [...prev, newProject].sort((a,b) => a.name.localeCompare(b.name)));
+        } else {
+             alert((await response.json()).message || "Nepodarilo sa pridať projekt.");
+        }
+    };
+    const updateProject = async (project: Project) => {
+        const response = await fetch(`${API_URL}/projects/${project.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(project),
+        });
+        if (response.ok) {
+            const updatedProject = await response.json();
+            setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+        } else {
+             alert("Nepodarilo sa upraviť projekt.");
+        }
+    };
+    const deleteProject = async (projectId: string) => {
+        if (window.confirm('Naozaj chcete vymazať tento projekt?')) {
+            const response = await fetch(`${API_URL}/projects/${projectId}`, { method: 'DELETE' });
+            if (response.ok) {
+                setProjects(prev => prev.filter(p => p.id !== projectId));
+            } else {
+                alert("Nepodarilo sa vymazať projekt.");
+            }
+        }
+    };
     const toggleProjectStatus = async (projectId: string) => {
         const response = await fetch(`${API_URL}/projects/${projectId}/toggle-status`, { method: 'PUT' });
         if (response.ok) {
@@ -365,7 +433,12 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         addCostCenter,
         updateCostCenter,
         deleteCostCenter,
+        addUser,
         updateUser,
+        deleteUser,
+        addProject,
+        updateProject,
+        deleteProject,
         toggleProjectStatus,
     };
 

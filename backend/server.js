@@ -38,11 +38,11 @@ app.post('/api/login', async (req, res) => {
 // --- INITIAL DATA ---
 app.get('/api/initial-data', async (req, res) => {
      try {
-        const usersRes = await pool.query('SELECT id, name, username, role, blocked, can_select_project_manually FROM users');
-        const projectsRes = await pool.query('SELECT * FROM projects');
-        const costCentersRes = await pool.query('SELECT * FROM cost_centers');
+        const usersRes = await pool.query('SELECT id, name, username, role, blocked, can_select_project_manually FROM users ORDER BY name');
+        const projectsRes = await pool.query('SELECT * FROM projects ORDER BY name');
+        const costCentersRes = await pool.query('SELECT * FROM cost_centers ORDER BY name');
         const userCostCentersRes = await pool.query('SELECT * FROM user_cost_centers');
-        const completedSessionsRes = await pool.query('SELECT * FROM completed_sessions');
+        const completedSessionsRes = await pool.query('SELECT * FROM completed_sessions ORDER BY timestamp DESC');
 
         const usersWithCostCenters = usersRes.rows.map(user => {
             const centers = userCostCentersRes.rows
@@ -65,6 +65,45 @@ app.get('/api/initial-data', async (req, res) => {
 
 
 // --- USERS ---
+app.post('/api/users', async (req, res) => {
+    const { name, username, role, password, can_select_project_manually, costCenters } = req.body;
+    if (!name || !username || !password) {
+        return res.status(400).json({ message: 'Meno, používateľské meno a heslo sú povinné.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUserRes = await client.query(
+            'INSERT INTO users (id, name, username, password, role, blocked, can_select_project_manually) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+            [`user${Date.now()}`, name, username, hashedPassword, role, false, can_select_project_manually]
+        );
+        const newUser = newUserRes.rows[0];
+
+        if (costCenters && costCenters.length > 0) {
+            for (const centerId of costCenters) {
+                await client.query('INSERT INTO user_cost_centers (user_id, center_id) VALUES ($1, $2)', [newUser.id, centerId]);
+            }
+        }
+        
+        await client.query('COMMIT');
+        const { password: pw, ...userWithoutPassword } = newUser;
+        res.status(201).json({ ...userWithoutPassword, costCenters });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        if (err.code === '23505') { // unique_violation
+            return res.status(409).json({ message: 'Používateľ s týmto menom už existuje.' });
+        }
+        console.error(err);
+        res.status(500).json({ message: 'Chyba pri pridávaní používateľa' });
+    } finally {
+        client.release();
+    }
+});
+
 app.put('/api/users/:id', async (req, res) => {
     const { id } = req.params;
     const { name, username, role, blocked, can_select_project_manually, password, costCenters } = req.body;
@@ -107,6 +146,20 @@ app.put('/api/users/:id', async (req, res) => {
         res.status(500).json({ message: 'Chyba pri aktualizácii používateľa' });
     } finally {
         client.release();
+    }
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const deleteRes = await pool.query('DELETE FROM users WHERE id = $1', [id]);
+        if (deleteRes.rowCount === 0) {
+            return res.status(404).json({ message: 'Používateľ nenájdený' });
+        }
+        res.status(204).send();
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Chyba pri mazaní používateľa' });
     }
 });
 
@@ -226,6 +279,45 @@ app.delete('/api/cost-centers/:id', async (req, res) => {
 
 
 // --- PROJECTS ---
+app.post('/api/projects', async (req, res) => {
+    const { name, budget, deadline, estimated_hours, cost_center_id } = req.body;
+    if (!name || !deadline || cost_center_id === undefined) {
+        return res.status(400).json({ message: 'Názov, deadline a stredisko sú povinné.' });
+    }
+    try {
+        const newProjectRes = await pool.query(
+            'INSERT INTO projects (id, name, budget, deadline, closed, estimated_hours, cost_center_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+            [`proj${Date.now()}`, name, budget, deadline, false, estimated_hours, cost_center_id]
+        );
+        res.status(201).json(newProjectRes.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Chyba pri pridávaní projektu' });
+    }
+});
+
+app.put('/api/projects/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, budget, deadline, estimated_hours, cost_center_id } = req.body;
+    if (!name || !deadline || cost_center_id === undefined) {
+        return res.status(400).json({ message: 'Názov, deadline a stredisko sú povinné.' });
+    }
+    try {
+        const updatedProjectRes = await pool.query(
+            'UPDATE projects SET name = $1, budget = $2, deadline = $3, estimated_hours = $4, cost_center_id = $5 WHERE id = $6 RETURNING *',
+            [name, budget, deadline, estimated_hours, cost_center_id, id]
+        );
+        if (updatedProjectRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Projekt nenájdený' });
+        }
+        res.json(updatedProjectRes.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Chyba pri aktualizácii projektu' });
+    }
+});
+
+
 app.put('/api/projects/:id/toggle-status', async (req, res) => {
     try {
         const { id } = req.params;
@@ -239,6 +331,20 @@ app.put('/api/projects/:id/toggle-status', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Error toggling project status" });
+    }
+});
+
+app.delete('/api/projects/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const deleteRes = await pool.query('DELETE FROM projects WHERE id = $1', [id]);
+        if (deleteRes.rowCount === 0) {
+            return res.status(404).json({ message: 'Projekt nenájdený' });
+        }
+        res.status(204).send();
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Chyba pri mazaní projektu' });
     }
 });
 

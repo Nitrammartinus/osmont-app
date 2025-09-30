@@ -5,9 +5,26 @@ import { UserPlus, Edit, Trash2, Ban, Check, QrCode, ChevronLeft, Download } fro
 import { QRCodeCanvas } from 'qrcode.react';
 
 const UserManagement: React.FC = () => {
-    const { users, updateUser, costCenters } = useTimeTracker();
+    const { users, updateUser, costCenters, addUser, deleteUser } = useTimeTracker();
     const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [newUser, setNewUser] = useState<Partial<User>>({ name: '', username: '', password: '', role: 'employee', can_select_project_manually: false, costCenters: [] });
     const [showQRCodeData, setShowQRCodeData] = useState<{ user: User, content: string } | null>(null);
+
+    const handleAddUser = async () => {
+        if (!newUser.name || !newUser.username || !newUser.password) {
+            alert('Meno, používateľské meno a heslo sú povinné.');
+            return;
+        }
+        await addUser({
+            name: newUser.name,
+            username: newUser.username,
+            password: newUser.password,
+            role: newUser.role || 'employee',
+            can_select_project_manually: newUser.can_select_project_manually || false,
+            costCenters: newUser.costCenters || [],
+        });
+        setNewUser({ name: '', username: '', password: '', role: 'employee', can_select_project_manually: false, costCenters: [] });
+    };
 
     const handleUpdateUser = async () => {
         if (!editingUser) return;
@@ -20,16 +37,26 @@ const UserManagement: React.FC = () => {
         setShowQRCodeData({ user, content: `USER_ID:${user.id}` });
     };
     
-    const handleCostCenterChange = (centerId: number, checked: boolean) => {
-        if (!editingUser) return;
-        const currentCenters = editingUser.costCenters || [];
-        let newCenters;
-        if (checked) {
-            newCenters = [...currentCenters, centerId];
+    // FIX: Replaced implementation to use functional updates for `useState` to resolve TypeScript type inference issue.
+    const handleCostCenterChange = (centerId: number, checked: boolean, isEditing: boolean) => {
+        if (isEditing) {
+            setEditingUser(prev => {
+                if (!prev) return null;
+                const currentCenters = prev.costCenters || [];
+                const newCenters = checked
+                    ? [...currentCenters, centerId]
+                    : currentCenters.filter(id => id !== centerId);
+                return { ...prev, costCenters: newCenters };
+            });
         } else {
-            newCenters = currentCenters.filter(id => id !== centerId);
+            setNewUser(prev => {
+                const currentCenters = prev.costCenters || [];
+                const newCenters = checked
+                    ? [...currentCenters, centerId]
+                    : currentCenters.filter(id => id !== centerId);
+                return { ...prev, costCenters: newCenters };
+            });
         }
-        setEditingUser({ ...editingUser, costCenters: newCenters });
     };
 
     if (showQRCodeData) {
@@ -99,12 +126,12 @@ const UserManagement: React.FC = () => {
                                 {costCenters.map(center => (
                                     <div key={center.id} className="flex items-center">
                                          <input
-                                            id={`center-${center.id}`}
+                                            id={`center-edit-${center.id}`}
                                             type="checkbox"
                                             checked={editingUser.costCenters?.includes(center.id) || false}
-                                            onChange={(e) => handleCostCenterChange(center.id, e.target.checked)}
+                                            onChange={(e) => handleCostCenterChange(center.id, e.target.checked, true)}
                                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
-                                        <label htmlFor={`center-${center.id}`} className="ml-2 block text-sm text-gray-900">{center.name}</label>
+                                        <label htmlFor={`center-edit-${center.id}`} className="ml-2 block text-sm text-gray-900">{center.name}</label>
                                     </div>
                                 ))}
                             </div>
@@ -126,6 +153,41 @@ const UserManagement: React.FC = () => {
     return (
         <div className="max-w-4xl mx-auto space-y-6">
             <div className="bg-white rounded-2xl shadow-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><UserPlus className="w-5 h-5 mr-2 text-blue-600" />Pridať Nového Používateľa</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" placeholder="Celé Meno" value={newUser.name || ''} onChange={e => setNewUser({...newUser, name: e.target.value})} className="w-full p-2 border rounded" />
+                    <input type="text" placeholder="Používateľské meno" value={newUser.username || ''} onChange={e => setNewUser({...newUser, username: e.target.value})} className="w-full p-2 border rounded" />
+                    <input type="password" placeholder="Heslo" value={newUser.password || ''} onChange={e => setNewUser({...newUser, password: e.target.value})} className="w-full p-2 border rounded" />
+                    <select value={newUser.role || 'employee'} onChange={e => setNewUser({...newUser, role: e.target.value as UserRole})} className="w-full p-2 border rounded">
+                        <option value="employee">Zamestnanec</option>
+                        <option value="manager">Manažér</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div className='mt-4'>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Strediská</label>
+                    <div className="grid grid-cols-2 gap-2 p-2 border rounded-lg">
+                        {costCenters.map(center => (
+                            <div key={center.id} className="flex items-center">
+                                    <input
+                                    id={`center-new-${center.id}`}
+                                    type="checkbox"
+                                    checked={newUser.costCenters?.includes(center.id) || false}
+                                    onChange={(e) => handleCostCenterChange(center.id, e.target.checked, false)}
+                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                                <label htmlFor={`center-new-${center.id}`} className="ml-2 block text-sm text-gray-900">{center.name}</label>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="flex items-center mt-4">
+                    <input id="canSelectManuallyNew" type="checkbox" checked={newUser.can_select_project_manually || false} onChange={e => setNewUser({ ...newUser, can_select_project_manually: e.target.checked })} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                    <label htmlFor="canSelectManuallyNew" className="ml-2 block text-sm text-gray-900">Môže manuálne vybrať projekt</label>
+                </div>
+                 <button onClick={handleAddUser} className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Pridať Používateľa</button>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-xl p-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Existujúci Používatelia ({users.length})</h3>
                 <div className="space-y-3">
                     {users.map(user => {
@@ -142,6 +204,7 @@ const UserManagement: React.FC = () => {
                                 {user.role === 'employee' && <button onClick={() => generateQRCode(user)} title="QR Kód" className="p-2 text-gray-500 hover:bg-blue-100 hover:text-blue-600 rounded-full"><QrCode className="w-4 h-4" /></button>}
                                 <button onClick={() => setEditingUser(user)} title="Upraviť" className="p-2 text-gray-500 hover:bg-yellow-100 hover:text-yellow-600 rounded-full"><Edit className="w-4 h-4" /></button>
                                 <button onClick={async () => await updateUser({ ...user, blocked: !user.blocked })} title={user.blocked ? "Odblokovať" : "Zablokovať"} className={`p-2 rounded-full ${user.blocked ? 'hover:bg-green-100 text-green-600' : 'hover:bg-red-100 text-red-600'}`}>{user.blocked ? <Check className="w-4 h-4"/> : <Ban className="w-4 h-4" />}</button>
+                                <button onClick={() => deleteUser(user.id)} title="Vymazať" className="p-2 text-gray-500 hover:bg-red-100 hover:text-red-600 rounded-full"><Trash2 className="w-4 h-4" /></button>
                             </div>
                         </div>
                     )})}
