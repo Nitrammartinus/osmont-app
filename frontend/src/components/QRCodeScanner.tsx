@@ -1,67 +1,57 @@
-
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X } from './Icons';
 import { Html5Qrcode } from 'html5-qrcode';
+import { useTimeTracker } from '../hooks/useTimeTracker';
 
 interface QRCodeScannerProps {
-    onScanSuccess: (decodedText: string) => void;
     onClose: () => void;
 }
 
-const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScanSuccess, onClose }) => {
+const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onClose }) => {
+    const { processQRCode } = useTimeTracker();
     const readerId = "qr-reader";
 
     useEffect(() => {
-        let html5QrCode: Html5Qrcode | undefined;
-        const config = {
-            fps: 10,
-            qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-                const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                const qrboxSize = Math.floor(minEdge * 0.7);
-                return {
-                    width: qrboxSize,
-                    height: qrboxSize,
-                };
-            },
-            rememberLastUsedCamera: true,
-        };
-
+        const html5QrCode = new Html5Qrcode(readerId);
+        
         const startScanner = async () => {
             try {
-                html5QrCode = new Html5Qrcode(readerId);
+                // FIX: Removed invalid 'rememberLastUsedCamera' property from the config object.
                 await html5QrCode.start(
                     { facingMode: "environment" },
-                    config,
-                    (decodedText: string, decodedResult: any) => {
-                        onScanSuccess(decodedText);
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (decodedText: string) => {
+                        html5QrCode.stop();
+                        onClose();
+                        processQRCode(decodedText);
                     },
-                    (errorMessage: string) => {
-                        // ignore error
-                    }
+                    (errorMessage: string) => { /* ignore */ }
                 );
             } catch (err) {
-                console.error("Nepodarilo sa spustiť QR skener", err);
+                console.error("Failed to start QR scanner", err);
                 alert("Nepodarilo sa spustiť kameru. Prosím, povoľte prístup ku kamere a obnovte stránku.");
                 onClose();
             }
         };
-
+        
         startScanner();
 
         return () => {
-            if (html5QrCode && html5QrCode.isScanning) {
-                html5QrCode.stop().catch((err: any) => console.error("Nepodarilo sa zastaviť skener", err));
-            }
+            html5QrCode.stop().catch(err => console.error("Failed to stop scanner cleanly.", err));
         };
-    }, [onScanSuccess, onClose]);
+    }, [onClose, processQRCode]);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800 rounded-2xl shadow-xl p-4 w-full max-w-lg relative aspect-video">
-                <button onClick={onClose} className="absolute top-2 right-2 text-white hover:text-gray-300 z-10 p-2 bg-black/30 rounded-full">
+            <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 z-10 p-1 bg-white/50 rounded-full">
                     <X className="w-6 h-6" />
                 </button>
-                <div id={readerId} className="w-full h-full rounded-lg overflow-hidden aspect-video"></div>
+                <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Naskenujte QR Kód</h3>
+                <div id="qr-reader-container" className="w-full">
+                    <div id={readerId} className="w-full"></div>
+                </div>
+                <p className="text-sm text-gray-500 mt-4 text-center">Umiestnite QR kód do rámčeka.</p>
             </div>
         </div>
     );

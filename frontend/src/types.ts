@@ -1,5 +1,9 @@
-
 export type UserRole = 'employee' | 'manager' | 'admin';
+
+export interface CostCenter {
+  id: number;
+  name: string;
+}
 
 export interface User {
   id: string;
@@ -9,12 +13,7 @@ export interface User {
   role: UserRole;
   blocked: boolean;
   can_select_project_manually: boolean;
-  costCenters?: number[];
-}
-
-export interface CostCenter {
-    id: number;
-    name: string;
+  costCenters: number[]; // Array of cost center IDs
 }
 
 export interface Project {
@@ -25,14 +24,14 @@ export interface Project {
   closed: boolean;
   estimated_hours?: number;
   cost_center_id: number;
-  cost_center_name?: string; 
+  cost_center_name?: string; // Added from backend join
 }
 
 export interface ActiveSession {
   id: number;
   user_id: string;
   project_id: string;
-  start_time: string; // ISO string from server
+  start_time: string; // Comes as ISO string from backend
   user_name: string;
   project_name: string;
   cost_center_id: number;
@@ -40,7 +39,7 @@ export interface ActiveSession {
 }
 
 export interface CompletedSession {
-  id?: number;
+  id: number;
   timestamp: string;
   employee_id: string;
   employee_name: string;

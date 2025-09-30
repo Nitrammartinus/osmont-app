@@ -1,8 +1,7 @@
-
 {
-  "name": "time-tracker-backend",
+  "name": "project-timer-backend",
   "version": "1.0.0",
-  "description": "Backend server for the time tracking application",
+  "description": "Backend server for the Project Timer application",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

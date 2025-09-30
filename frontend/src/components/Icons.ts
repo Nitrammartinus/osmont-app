@@ -1,4 +1,3 @@
-
 export {
     Camera,
     Play,
@@ -35,8 +34,7 @@ export {
     ChevronLeft,
     Target,
     TrendingDown,
-    Building2,
     ArrowLeftRight,
-    // FIX: Add missing ChevronDown icon export.
+    Building2,
     ChevronDown,
 } from 'lucide-react';
