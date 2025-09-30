@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useContext, createContext, useCallback, useMemo } from 'react';
 import { User, Project, ActiveSession, CompletedSession, View, ProjectEvaluationData } from '../types';
 import { INITIAL_USERS, INITIAL_PROJECTS } from '../constants';
@@ -266,7 +267,8 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             
             // Advanced Metrics
             const costPerHour = totalHours > 0 ? project.budget / totalHours : 0;
-            const timeVariance = project.estimatedHours != null ? totalHours - project.estimatedHours : null;
+            // FIX: Use `estimated_hours` instead of `estimatedHours`
+            const timeVariance = project.estimated_hours != null ? totalHours - project.estimated_hours : null;
             
             let progressTowardsDeadline = 0;
             const firstSession = projectSessions.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())[0];

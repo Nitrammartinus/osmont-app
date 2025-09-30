@@ -31,9 +31,7 @@ export {
     Check,
     LogOut,
     Menu,
-    ChevronLeft,
-    Target,
-    TrendingDown,
-    ArrowLeftRight,
     Building2,
+    // FIX: Add missing ArrowLeftRight icon to exports.
+    ArrowLeftRight
 } from 'lucide-react';

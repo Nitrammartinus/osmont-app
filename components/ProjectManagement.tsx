@@ -7,11 +7,13 @@ import { FolderPlus, Edit, Trash2, Lock, Unlock, QrCode, ChevronLeft, Download }
 const ProjectManagement: React.FC = () => {
     const { projects, setProjects } = useTimeTracker();
     const [editingProject, setEditingProject] = useState<Project | null>(null);
-    const [newProject, setNewProject] = useState<Partial<Project>>({ name: '', budget: 0, deadline: '', estimatedHours: 0 });
+    // FIX: Use new project fields in initial state
+    const [newProject, setNewProject] = useState<Partial<Project>>({ name: '', budget: 0, deadline: '', estimated_hours: 0, cost_center_id: undefined });
     const [showQRCode, setShowQRCode] = useState<{ project: Project, content: string } | null>(null);
 
+    // FIX: Handle new project fields on creation
     const handleAddProject = () => {
-        if (!newProject.name || !newProject.budget || !newProject.deadline) {
+        if (!newProject.name || !newProject.budget || !newProject.deadline || !newProject.cost_center_id) {
             alert('Please fill all fields for the new project.');
             return;
         }
@@ -21,17 +23,21 @@ const ProjectManagement: React.FC = () => {
             budget: Number(newProject.budget),
             deadline: newProject.deadline,
             closed: false,
-            estimatedHours: Number(newProject.estimatedHours) || undefined,
+            estimated_hours: Number(newProject.estimated_hours) || undefined,
+            cost_center_id: Number(newProject.cost_center_id),
         };
         setProjects(prev => [...prev, projectToAdd]);
-        setNewProject({ name: '', budget: 0, deadline: '', estimatedHours: 0 });
+        setNewProject({ name: '', budget: 0, deadline: '', estimated_hours: 0, cost_center_id: undefined });
     };
 
+    // FIX: Handle new project fields on update
     const handleUpdateProject = () => {
         if (!editingProject) return;
         const projectToUpdate = {
             ...editingProject,
-            estimatedHours: Number(editingProject.estimatedHours) || undefined,
+            budget: Number(editingProject.budget),
+            cost_center_id: Number(editingProject.cost_center_id),
+            estimated_hours: Number(editingProject.estimated_hours) || undefined,
         }
         setProjects(prev => prev.map(p => p.id === editingProject.id ? projectToUpdate : p));
         setEditingProject(null);
@@ -88,7 +94,9 @@ const ProjectManagement: React.FC = () => {
                          <input type="text" placeholder="Project Name" value={editingProject.name} onChange={e => setEditingProject({...editingProject, name: e.target.value})} className="w-full p-2 border rounded" />
                          <input type="number" placeholder="Budget" value={editingProject.budget} onChange={e => setEditingProject({...editingProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded" />
                          <input type="date" value={editingProject.deadline} onChange={e => setEditingProject({...editingProject, deadline: e.target.value})} className="w-full p-2 border rounded" />
-                         <input type="number" placeholder="Estimated Hours" value={editingProject.estimatedHours || ''} onChange={e => setEditingProject({...editingProject, estimatedHours: Number(e.target.value)})} className="w-full p-2 border rounded" />
+                         {/* FIX: Add input for cost_center_id and use estimated_hours */}
+                         <input type="number" placeholder="Cost Center ID" value={editingProject.cost_center_id} onChange={e => setEditingProject({...editingProject, cost_center_id: Number(e.target.value)})} className="w-full p-2 border rounded" />
+                         <input type="number" placeholder="Estimated Hours" value={editingProject.estimated_hours || ''} onChange={e => setEditingProject({...editingProject, estimated_hours: Number(e.target.value)})} className="w-full p-2 border rounded" />
                          <div className="flex space-x-2">
                             <button onClick={handleUpdateProject} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Save</button>
                             <button onClick={() => setEditingProject(null)} className="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300">Cancel</button>
@@ -107,7 +115,9 @@ const ProjectManagement: React.FC = () => {
                     <input type="text" placeholder="Project Name" value={newProject.name || ''} onChange={e => setNewProject({...newProject, name: e.target.value})} className="w-full p-2 border rounded" />
                     <input type="number" placeholder="Budget" value={newProject.budget || ''} onChange={e => setNewProject({...newProject, budget: Number(e.target.value)})} className="w-full p-2 border rounded" />
                     <input type="date" value={newProject.deadline || ''} onChange={e => setNewProject({...newProject, deadline: e.target.value})} className="w-full p-2 border rounded" />
-                    <input type="number" placeholder="Estimated Hours" value={newProject.estimatedHours || ''} onChange={e => setNewProject({...newProject, estimatedHours: Number(e.target.value)})} className="w-full p-2 border rounded" />
+                    {/* FIX: Add input for cost_center_id and use estimated_hours */}
+                    <input type="number" placeholder="Cost Center ID" value={newProject.cost_center_id || ''} onChange={e => setNewProject({...newProject, cost_center_id: Number(e.target.value)})} className="w-full p-2 border rounded" />
+                    <input type="number" placeholder="Estimated Hours" value={newProject.estimated_hours || ''} onChange={e => setNewProject({...newProject, estimated_hours: Number(e.target.value)})} className="w-full p-2 border rounded" />
                 </div>
                 <button onClick={handleAddProject} className="mt-4 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Add Project</button>
             </div>

@@ -7,9 +7,11 @@ import { UserPlus, Edit, Trash2, Ban, Check, QrCode, ChevronLeft, Download } fro
 const UserManagement: React.FC = () => {
     const { users, setUsers } = useTimeTracker();
     const [editingUser, setEditingUser] = useState<User | null>(null);
-    const [newUser, setNewUser] = useState<Partial<User>>({ name: '', username: '', password: '', role: 'employee' });
+    // FIX: Add new user fields to initial state
+    const [newUser, setNewUser] = useState<Partial<User>>({ name: '', username: '', password: '', role: 'employee', can_select_project_manually: false, costCenters: [] });
     const [showQRCode, setShowQRCode] = useState<{ user: User, content: string } | null>(null);
 
+    // FIX: Handle new user fields on creation
     const handleAddUser = () => {
         if (!newUser.name || !newUser.username || !newUser.password) {
             alert('Please fill all fields for the new user.');
@@ -26,9 +28,11 @@ const UserManagement: React.FC = () => {
             password: newUser.password,
             role: newUser.role || 'employee',
             blocked: false,
+            can_select_project_manually: newUser.can_select_project_manually || false,
+            costCenters: newUser.costCenters || [],
         };
         setUsers(prev => [...prev, userToAdd]);
-        setNewUser({ name: '', username: '', password: '', role: 'employee' });
+        setNewUser({ name: '', username: '', password: '', role: 'employee', can_select_project_manually: false, costCenters: [] });
     };
 
     const handleUpdateUser = () => {
@@ -108,6 +112,22 @@ const UserManagement: React.FC = () => {
                             <option value="manager">Manager</option>
                             <option value="admin">Admin</option>
                          </select>
+                        {/* FIX: Add inputs for new user fields */}
+                        <input
+                            type="text"
+                            placeholder="Cost Centers (e.g. 1, 2)"
+                            value={editingUser.costCenters?.join(', ') || ''}
+                            onChange={e => setEditingUser({ ...editingUser, costCenters: e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) })}
+                            className="w-full p-2 border rounded" />
+                        <div className="flex items-center">
+                            <input
+                                id="canSelectManuallyEdit"
+                                type="checkbox"
+                                checked={editingUser.can_select_project_manually || false}
+                                onChange={e => setEditingUser({ ...editingUser, can_select_project_manually: e.target.checked })}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                            <label htmlFor="canSelectManuallyEdit" className="ml-2 block text-sm text-gray-900">Can select project manually</label>
+                        </div>
                          <div className="flex space-x-2">
                             <button onClick={handleUpdateUser} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Save</button>
                             <button onClick={() => setEditingUser(null)} className="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300">Cancel</button>
@@ -131,6 +151,23 @@ const UserManagement: React.FC = () => {
                         <option value="manager">Manager</option>
                         <option value="admin">Admin</option>
                     </select>
+                    {/* FIX: Add input for cost centers */}
+                    <input
+                        type="text"
+                        placeholder="Cost Centers (e.g. 1, 2)"
+                        value={newUser.costCenters?.join(', ') || ''}
+                        onChange={e => setNewUser({ ...newUser, costCenters: e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) })}
+                        className="w-full p-2 border rounded md:col-span-2" />
+                </div>
+                {/* FIX: Add checkbox for manual project selection */}
+                <div className="flex items-center mt-4">
+                    <input
+                        id="canSelectManuallyNew"
+                        type="checkbox"
+                        checked={newUser.can_select_project_manually || false}
+                        onChange={e => setNewUser({ ...newUser, can_select_project_manually: e.target.checked })}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                    <label htmlFor="canSelectManuallyNew" className="ml-2 block text-sm text-gray-900">Can select project manually</label>
                 </div>
                  <button onClick={handleAddUser} className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Add User</button>
             </div>
@@ -142,6 +179,11 @@ const UserManagement: React.FC = () => {
                             <div>
                                 <p className="font-medium">{user.name} {user.blocked && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full ml-2">Blocked</span>}</p>
                                 <p className="text-sm text-gray-600">@{user.username} - {user.role}</p>
+                                {/* FIX: Display new user properties */}
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {user.can_select_project_manually && <span className="mr-2 inline-block bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Manual Project Selection</span>}
+                                    {(user.costCenters?.length > 0) && <span className="inline-block bg-gray-200 text-gray-800 px-2 py-0.5 rounded">Cost Centers: {user.costCenters.join(', ')}</span>}
+                                </p>
                             </div>
                             <div className="flex items-center space-x-2">
                                 <button onClick={() => generateQRCode(user)} title="QR Code" className="p-2 text-gray-500 hover:bg-blue-100 hover:text-blue-600 rounded-full"><QrCode className="w-4 h-4" /></button>

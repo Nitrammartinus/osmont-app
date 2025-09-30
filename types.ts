@@ -9,6 +9,8 @@ export interface User {
   password?: string;
   role: UserRole;
   blocked: boolean;
+  can_select_project_manually: boolean;
+  costCenters: number[];
 }
 
 export interface Project {
@@ -17,7 +19,8 @@ export interface Project {
   budget: number;
   deadline: string;
   closed: boolean;
-  estimatedHours?: number;
+  estimated_hours?: number;
+  cost_center_id: number;
 }
 
 export interface ActiveSession {
