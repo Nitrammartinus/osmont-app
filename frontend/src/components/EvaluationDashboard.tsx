@@ -111,7 +111,6 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
 
 
 const EvaluationDashboard: React.FC = () => {
-    // FIX: Add costCenters to destructured props
     const { projectEvaluation, exportToExcel, completedSessions, costCenters } = useTimeTracker();
     const [selectedProject, setSelectedProject] = useState<ProjectEvaluationData | null>(null);
     const [startDate, setStartDate] = useState<string>('');
@@ -176,7 +175,6 @@ const EvaluationDashboard: React.FC = () => {
                         <h2 className="text-xl font-bold text-gray-800">Celkový Prehľad</h2>
                         <p className="text-gray-600">Celkový čas v období: {formatDuration(totalTrackedTime)}</p>
                     </div>
-                    {/* FIX: Call exportToExcel with filtered sessions */}
                     <button onClick={() => exportToExcel(filteredSessions)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm flex items-center mt-4 sm:mt-0">
                         <Download className="w-4 h-4 mr-2" /> Exportovať Všetky Dáta
                     </button>

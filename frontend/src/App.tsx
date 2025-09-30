@@ -11,7 +11,6 @@ import { Shield } from './components/Icons';
 import { UserRole } from './types';
 
 const ProtectedRoute: React.FC<{ allowedRoles: UserRole[], children: React.ReactNode }> = ({ allowedRoles, children }) => {
-    // FIX: Add isLoading to destructured props
     const { currentUser, isLoading } = useTimeTracker();
 
     if (isLoading) {
