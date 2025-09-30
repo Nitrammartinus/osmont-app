@@ -1,47 +1,36 @@
 import React, { useState, useEffect, useContext, createContext, useCallback, useMemo } from 'react';
-import { User, Project, ActiveSession, CompletedSession, ProjectEvaluationData, CostCenter } from '../types';
+import { useNavigate } from 'react-router-dom';
+import { User, Project, ActiveSession, CompletedSession, ProjectEvaluationData, CostCenter, UserBreakdown } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
-
-export const formatDuration = (minutes: number) => {
-    if (isNaN(minutes) || minutes < 0) return '0h 0m';
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
-    return `${hours}h ${mins}m`;
-};
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface TimeTrackerContextType {
     currentUser: User | null;
+    setCurrentUser: React.Dispatch<React.SetStateAction<User | null>>;
     users: User[];
     projects: Project[];
     activeSessions: ActiveSession[];
     completedSessions: CompletedSession[];
     costCenters: CostCenter[];
     sessionTimers: Record<number, number>;
-    userForStopConfirmation: User | null;
-    isLoading: boolean;
-    error: string | null;
+    projectEvaluation: Record<string, ProjectEvaluationData>;
+    canAccessEvaluation: boolean;
     isAdmin: boolean;
     isManager: boolean;
-    canAccessEvaluation: boolean;
+    isLoading: boolean;
+    error: string | null;
+    userForStopConfirmation: User | null;
     setUserForStopConfirmation: React.Dispatch<React.SetStateAction<User | null>>;
-    handleManualLogin: (username: string, password: string) => Promise<boolean>;
-    logout: () => void;
-    processQRCode: (qrText: string) => void;
-    startSession: (projectId: string) => Promise<void>;
+    processQRCode: (qrText: string) => Promise<void>;
+    handleManualLogin: (username: string, password: string) => Promise<void>;
     stopSessionForUser: (user: User) => Promise<void>;
-    addUser: (user: Partial<User>) => Promise<void>;
-    updateUser: (user: User) => Promise<void>;
-    deleteUser: (userId: string) => Promise<void>;
-    addProject: (project: Partial<Project>) => Promise<void>;
-    updateProject: (project: Project) => Promise<void>;
-    deleteProject: (projectId: string) => Promise<void>;
-    toggleProjectStatus: (project: Project) => Promise<void>;
+    startSession: (projectId: string) => Promise<void>;
+    exportToExcel: (sessionsToExport: CompletedSession[]) => void;
     addCostCenter: (name: string) => Promise<void>;
-    updateCostCenter: (center: CostCenter) => Promise<void>;
-    deleteCostCenter: (centerId: number) => Promise<void>;
-    projectEvaluation: Record<string, ProjectEvaluationData>;
-    exportToExcel: (sessionsToExport?: CompletedSession[]) => void;
+    updateCostCenter: (id: number, name: string) => Promise<void>;
+    deleteCostCenter: (id: number) => Promise<void>;
+    updateUser: (user: User) => Promise<void>;
+    toggleProjectStatus: (projectId: string) => Promise<void>;
 }
 
 const TimeTrackerContext = createContext<TimeTrackerContextType | undefined>(undefined);
@@ -55,260 +44,205 @@ export const useTimeTracker = () => {
 };
 
 export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [currentUser, setCurrentUser] = useState<User | null>(() => {
-        try {
-            const userJson = localStorage.getItem('timeTracker-currentUser');
-            return userJson ? JSON.parse(userJson) : null;
-        } catch {
-            return null;
-        }
-    });
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [users, setUsers] = useState<User[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
     const [completedSessions, setCompletedSessions] = useState<CompletedSession[]>([]);
     const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
     const [sessionTimers, setSessionTimers] = useState<Record<number, number>>({});
-    const [userForStopConfirmation, setUserForStopConfirmation] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    const apiRequest = useCallback(async (endpoint: string, method: string = 'GET', body: any = null) => {
-        try {
-            const headers: HeadersInit = { 'Content-Type': 'application/json' };
-            if (currentUser) {
-                headers['x-user-id'] = currentUser.id;
-                headers['x-user-role'] = currentUser.role;
-            }
-
-            const options: RequestInit = {
-                method,
-                headers,
-            };
-            if (body) {
-                options.body = JSON.stringify(body);
-            }
-
-            const response = await fetch(`${API_URL}${endpoint}`, options);
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `Chyba ${response.status}`);
-            }
-
-            if (response.status === 204) {
-                return null;
-            }
-
-            return response.json();
-        } catch (err: any) {
-            console.error(`API request failed: ${method} ${endpoint}`, err);
-            alert(`Chyba: ${err.message}`);
-            throw err; // Re-throw to be caught by calling function if needed
-        }
-    }, [currentUser]);
+    const [userForStopConfirmation, setUserForStopConfirmation] = useState<User | null>(null);
+    const navigate = useNavigate();
 
     const fetchData = useCallback(async () => {
-        // Don't set loading to true on refetches, only on initial load
-        if (isLoading) {
-             setError(null);
-        }
+        setIsLoading(true);
+        setError(null);
         try {
-            const data = await apiRequest('/initial-data');
+            const response = await fetch(`${API_URL}/initial-data`);
+            if (!response.ok) {
+                throw new Error('Nepodarilo sa načítať dáta zo servera.');
+            }
+            const data = await response.json();
             setUsers(data.users);
             setProjects(data.projects);
-            setActiveSessions(data.activeSessions);
-            setCompletedSessions(data.completedSessions);
             setCostCenters(data.costCenters);
-        } catch (err: any) {
-             if (isLoading) {
-                setError(`Nepodarilo sa načítať dáta zo servera. Skontrolujte pripojenie a skúste to znova. (${err.message})`);
-             }
+            setCompletedSessions(data.completedSessions);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'An unknown error occurred.');
         } finally {
-            if (isLoading) {
-                setIsLoading(false);
-            }
+            setIsLoading(false);
         }
-    }, [apiRequest, isLoading]);
+    }, []);
+
+    const fetchActiveSessions = useCallback(async () => {
+        try {
+            const response = await fetch(`${API_URL}/active-sessions`);
+            if (response.ok) {
+                const data = await response.json();
+                setActiveSessions(data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch active sessions", err);
+        }
+    }, []);
 
 
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+        fetchActiveSessions();
+        const interval = setInterval(fetchActiveSessions, 5000);
+        return () => clearInterval(interval);
+    }, [fetchData, fetchActiveSessions]);
+
 
     useEffect(() => {
-        try {
-            if (currentUser) {
-                localStorage.setItem('timeTracker-currentUser', JSON.stringify(currentUser));
-            } else {
-                localStorage.removeItem('timeTracker-currentUser');
-            }
-        } catch (e) {
-            console.error("Failed to update localStorage", e);
-        }
-    }, [currentUser]);
-
-    useEffect(() => {
-        const interval = setInterval(() => {
+        const timerInterval = setInterval(() => {
             const now = Date.now();
             const updatedTimers: Record<number, number> = {};
             activeSessions.forEach(session => {
-                updatedTimers[session.id] = now - new Date(session.start_time).getTime();
+                updatedTimers[session.id] = now - new Date(session.startTime).getTime();
             });
             setSessionTimers(updatedTimers);
         }, 1000);
-        return () => clearInterval(interval);
-    }, [activeSessions]);
 
-    const handleManualLogin = useCallback(async (username: string, password: string): Promise<boolean> => {
+        return () => clearInterval(timerInterval);
+    }, [activeSessions]);
+    
+    const handleManualLogin = async (username: string, password: string) => {
         try {
-            const user = await apiRequest('/login', 'POST', { username, password });
-            const existingSession = activeSessions.find(s => s.user_id === user.id);
+            const response = await fetch(`${API_URL}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Chyba pri prihlasovaní');
+            }
+            const user: User = await response.json();
+            const existingSession = activeSessions.find(s => s.userId === user.id);
             if (existingSession) {
                 setUserForStopConfirmation(user);
             } else {
                 setCurrentUser(user);
             }
-            return true;
-        } catch (error) {
-            return false;
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'An unknown error occurred.');
         }
-    }, [apiRequest, activeSessions]);
+    };
     
-    const logout = useCallback(() => {
-        setCurrentUser(null);
-    }, []);
-
-    const processQRCode = useCallback(async (qrText: string) => {
-        if (qrText.startsWith('USER_ID:')) {
-            const userId = qrText.substring('USER_ID:'.length);
-            const user = users.find(u => u.id === userId && !u.blocked);
+    const processQRCode = async (qrText: string) => {
+        const text = qrText.trim();
+        if (text.startsWith('USER_ID:')) {
+            const userId = text.substring('USER_ID:'.length);
+            const user = users.find(u => u.id === userId);
             if (user) {
-                const existingSession = activeSessions.find(s => s.user_id === user.id);
+                 if (user.blocked) {
+                    alert('Používateľ je zablokovaný.');
+                    return;
+                }
+                const existingSession = activeSessions.find(s => s.userId === user.id);
                 if (existingSession) {
                     setUserForStopConfirmation(user);
                 } else {
                     setCurrentUser(user);
                 }
             } else {
-                alert('Neplatný alebo zablokovaný QR kód používateľa.');
+                alert('Neplatný QR kód používateľa.');
             }
-        } else if (qrText.startsWith('PROJECT_ID:')) {
+        } else if (text.startsWith('PROJECT_ID:')) {
             if (!currentUser) {
-                alert('Prosím, prihláste sa pred skenovaním projektu.');
+                alert('Prosím, najprv sa prihláste.');
                 return;
             }
-            const projectId = qrText.substring('PROJECT_ID:'.length);
+            const projectId = text.substring('PROJECT_ID:'.length);
             await startSession(projectId);
         } else {
             alert('Nerozpoznaný formát QR kódu.');
         }
-    }, [users, currentUser, activeSessions, startSession]);
+    };
+    
+    const startSession = async (projectId: string) => {
+        if (!currentUser) {
+            alert('Prosím, najprv sa prihláste.');
+            return;
+        }
+        
+        const project = projects.find(p => p.id === projectId);
+        if (!project) {
+            alert("Projekt neexistuje.");
+            return;
+        }
+        if (project.closed) {
+            alert("Projekt je uzatvorený a nie je možné preň spustiť novú reláciu.");
+            return;
+        }
 
-    const startSession = useCallback(async (projectId: string) => {
-        if (!currentUser) return;
         try {
-            await apiRequest('/start-session', 'POST', { userId: currentUser.id, projectId });
-            await fetchData();
+            const response = await fetch(`${API_URL}/active-sessions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: currentUser.id, projectId }),
+            });
+            if (!response.ok) throw new Error('Nepodarilo sa spustiť reláciu.');
+            await fetchActiveSessions();
             setCurrentUser(null);
-        } catch (error) {
-            // Error is alerted in apiRequest
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'An unknown error occurred.');
         }
-    }, [apiRequest, currentUser, fetchData]);
+    };
 
-    const stopSessionForUser = useCallback(async (user: User) => {
+
+    const stopSessionForUser = async (user: User) => {
         try {
-            await apiRequest('/stop-session', 'POST', { userId: user.id });
-            await fetchData();
-        } catch (error) {
-            // Error is alerted in apiRequest
+            const response = await fetch(`${API_URL}/active-sessions/${user.id}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) throw new Error('Nepodarilo sa ukončiť reláciu.');
+            
+            // Refetch both active and completed sessions to ensure UI is up-to-date
+            await fetchActiveSessions();
+            const completedResponse = await fetch(`${API_URL}/initial-data`);
+            const data = await completedResponse.json();
+            setCompletedSessions(data.completedSessions);
+
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'An unknown error occurred.');
         }
-    }, [apiRequest, fetchData]);
+    };
+
+    const exportToExcel = (sessionsToExport: CompletedSession[]) => {
+        if (sessionsToExport.length === 0) {
+            alert('Žiadne relácie na export!');
+            return;
+        }
+        const headers = ['Dátum', 'Čas', 'ID Zamestnanca', 'Meno Zamestnanca', 'ID Projektu', 'Názov Projektu', 'Trvanie (minúty)', 'Trvanie (formátované)'];
+        const csvContent = [
+            headers.join(';'),
+            ...sessionsToExport.map(s => {
+                const date = new Date(s.timestamp);
+                const durationFormatted = `${Math.floor(s.duration_minutes / 60)}h ${s.duration_minutes % 60}m`;
+                return `"${date.toLocaleDateString()}";"${date.toLocaleTimeString()}";"${s.employee_id}";"${s.employee_name}";"${s.project_id}";"${s.project_name}";${s.duration_minutes};"${durationFormatted}"`;
+            })
+        ].join('\n');
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `report_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+    };
     
-    // User Management
-    const addUser = useCallback(async (user: Partial<User>) => {
-        try {
-            await apiRequest('/users', 'POST', user);
-            await fetchData();
-        } catch(e) {}
-    }, [apiRequest, fetchData]);
-
-    const updateUser = useCallback(async (user: User) => {
-        try {
-            await apiRequest(`/users/${user.id}`, 'PUT', user);
-            await fetchData();
-        } catch(e) {}
-    }, [apiRequest, fetchData]);
-    
-    const deleteUser = useCallback(async (userId: string) => {
-        if (window.confirm('Naozaj chcete vymazať tohto používateľa?')) {
-            try {
-                await apiRequest(`/users/${userId}`, 'DELETE');
-                await fetchData();
-            } catch(e) {}
-        }
-    }, [apiRequest, fetchData]);
-
-    // Project Management
-    const addProject = useCallback(async (project: Partial<Project>) => {
-        try {
-            await apiRequest('/projects', 'POST', project);
-            await fetchData();
-        } catch(e) {}
-    }, [apiRequest, fetchData]);
-
-    const updateProject = useCallback(async (project: Project) => {
-        try {
-            await apiRequest(`/projects/${project.id}`, 'PUT', project);
-            await fetchData();
-        } catch(e) {}
-    }, [apiRequest, fetchData]);
-    
-    const deleteProject = useCallback(async (projectId: string) => {
-        if (window.confirm('Naozaj chcete vymazať tento projekt?')) {
-            try {
-                await apiRequest(`/projects/${projectId}`, 'DELETE');
-                await fetchData();
-            } catch(e) {}
-        }
-    }, [apiRequest, fetchData]);
-
-    const toggleProjectStatus = useCallback(async (project: Project) => {
-        await updateProject({ ...project, closed: !project.closed });
-    }, [updateProject]);
-
-    // Cost Center Management
-    const addCostCenter = useCallback(async (name: string) => {
-        try {
-            await apiRequest('/cost-centers', 'POST', { name });
-            await fetchData();
-        } catch(e) {}
-    }, [apiRequest, fetchData]);
-
-    const updateCostCenter = useCallback(async (center: CostCenter) => {
-        try {
-            await apiRequest(`/cost-centers/${center.id}`, 'PUT', center);
-            await fetchData();
-        } catch(e) {}
-    }, [apiRequest, fetchData]);
-    
-    const deleteCostCenter = useCallback(async (centerId: number) => {
-         if (window.confirm('Naozaj chcete vymazať toto stredisko?')) {
-            try {
-                await apiRequest(`/cost-centers/${centerId}`, 'DELETE');
-                await fetchData();
-            } catch(e) {}
-        }
-    }, [apiRequest, fetchData]);
-
-    const projectEvaluation = useMemo((): Record<string, ProjectEvaluationData> => {
+    const getProjectEvaluation = useCallback((): Record<string, ProjectEvaluationData> => {
         const evaluation: Record<string, ProjectEvaluationData> = {};
         projects.forEach(project => {
             const projectSessions = completedSessions.filter(s => s.project_id === project.id);
             const totalTime = projectSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
             const totalHours = totalTime / 60;
             const uniqueUsers = [...new Set(projectSessions.map(s => s.employee_id))].length;
-            const userBreakdown: ProjectEvaluationData['userBreakdown'] = {};
+
+            const userBreakdown: Record<string, UserBreakdown> = {};
             projectSessions.forEach(session => {
                 if (!userBreakdown[session.employee_id]) {
                     userBreakdown[session.employee_id] = { name: session.employee_name, totalTime: 0, sessions: 0 };
@@ -317,10 +251,11 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 userBreakdown[session.employee_id].sessions += 1;
             });
             
-            const costPerHour = totalHours > 0 ? project.budget / totalHours : 0;
+            const costPerHour = totalHours > 0 && project.budget ? project.budget / totalHours : 0;
             const timeVariance = project.estimated_hours != null ? totalHours - project.estimated_hours : null;
-            const workProgressPercentage = (project.estimated_hours && totalHours > 0) ? Math.min(100, (totalHours / project.estimated_hours) * 100) : null;
-            
+            const workProgressPercentage = project.estimated_hours && project.estimated_hours > 0 ? (totalHours / project.estimated_hours) * 100 : null;
+
+
             evaluation[project.id] = {
                 ...project,
                 totalTime,
@@ -336,63 +271,102 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         });
         return evaluation;
     }, [projects, completedSessions]);
-
-    const exportToExcel = useCallback((sessionsToExport?: CompletedSession[]) => {
-        const sessions = sessionsToExport || completedSessions;
-        if (sessions.length === 0) {
-            alert('Žiadne dokončené relácie na export!');
-            return;
+    
+    // --- Cost Center Management ---
+    const addCostCenter = async (name: string) => {
+        const response = await fetch(`${API_URL}/cost-centers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+        });
+        if (response.ok) {
+            const newCenter = await response.json();
+            setCostCenters(prev => [...prev, newCenter].sort((a,b) => a.name.localeCompare(b.name)));
+        } else {
+            alert("Nepodarilo sa pridať stredisko.");
         }
-        const headers = ['Timestamp', 'ID zamestnanca', 'Meno zamestnanca', 'ID projektu', 'Názov projektu', 'Trvanie (minúty)'];
-        const csvContent = [
-            headers.join(';'),
-            ...sessions.map(s => `"${s.timestamp}";"${s.employee_id}";"${s.employee_name}";"${s.project_id}";"${s.project_name}";${s.duration_minutes}`)
-        ].join('\n');
-        
-        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `time_tracking_export_${new Date().toISOString().split('T')[0]}.csv`;
-        link.click();
-    }, [completedSessions]);
+    };
+    const updateCostCenter = async (id: number, name: string) => {
+        const response = await fetch(`${API_URL}/cost-centers/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+        });
+        if (response.ok) {
+            const updatedCenter = await response.json();
+            setCostCenters(prev => prev.map(c => c.id === id ? updatedCenter : c));
+        } else {
+            alert("Nepodarilo sa upraviť stredisko.");
+        }
+    };
+    const deleteCostCenter = async (id: number) => {
+        if(window.confirm('Naozaj chcete vymazať toto stredisko?')) {
+            const response = await fetch(`${API_URL}/cost-centers/${id}`, { method: 'DELETE' });
+            if (response.ok) {
+                setCostCenters(prev => prev.filter(c => c.id !== id));
+            } else {
+                alert("Nepodarilo sa vymazať stredisko. Uistite sa, že nie je priradené k žiadnemu projektu.");
+            }
+        }
+    };
+    
+    const updateUser = async (userToUpdate: User) => {
+        const response = await fetch(`${API_URL}/users/${userToUpdate.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userToUpdate),
+        });
+        if (response.ok) {
+            const updatedUser = await response.json();
+            setUsers(prev => prev.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u));
+        } else {
+             alert("Nepodarilo sa upraviť používateľa.");
+        }
+    };
+    
+    const toggleProjectStatus = async (projectId: string) => {
+        const response = await fetch(`${API_URL}/projects/${projectId}/toggle-status`, { method: 'PUT' });
+        if (response.ok) {
+            const updatedProject = await response.json();
+            setProjects(prev => prev.map(p => p.id === projectId ? updatedProject : p));
+        } else {
+            alert("Nepodarilo sa zmeniť stav projektu.");
+        }
+    };
+    
 
-
-    const isAdmin = useMemo(() => currentUser?.role === 'admin', [currentUser]);
-    const isManager = useMemo(() => currentUser?.role === 'manager', [currentUser]);
-    const canAccessEvaluation = useMemo(() => isAdmin || isManager, [isAdmin, isManager]);
+    const projectEvaluation = useMemo(() => getProjectEvaluation(), [getProjectEvaluation]);
+    const canAccessEvaluation = currentUser?.role === 'manager' || currentUser?.role === 'admin';
+    const isAdmin = currentUser?.role === 'admin';
+    const isManager = currentUser?.role === 'manager';
 
     const value = {
         currentUser,
+        setCurrentUser,
         users,
         projects,
         activeSessions,
         completedSessions,
         costCenters,
         sessionTimers,
-        userForStopConfirmation,
-        isLoading,
-        error,
+        projectEvaluation,
+        canAccessEvaluation,
         isAdmin,
         isManager,
-        canAccessEvaluation,
+        isLoading,
+        error,
+        userForStopConfirmation,
         setUserForStopConfirmation,
-        handleManualLogin,
-        logout,
         processQRCode,
-        startSession,
+        handleManualLogin,
         stopSessionForUser,
-        addUser,
-        updateUser,
-        deleteUser,
-        addProject,
-        updateProject,
-        deleteProject,
-        toggleProjectStatus,
+        startSession,
+        exportToExcel,
         addCostCenter,
         updateCostCenter,
         deleteCostCenter,
-        projectEvaluation,
-        exportToExcel,
+        updateUser,
+        toggleProjectStatus,
     };
 
     return <TimeTrackerContext.Provider value={value}>{children}</TimeTrackerContext.Provider>;

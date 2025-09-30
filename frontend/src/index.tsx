@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { TimeTrackerProvider } from './hooks/useTimeTracker';
 import App from './App';
 import './index.css';
 
@@ -14,9 +13,7 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <TimeTrackerProvider>
-        <App />
-      </TimeTrackerProvider>
+      <App />
     </BrowserRouter>
   </React.StrictMode>
 );

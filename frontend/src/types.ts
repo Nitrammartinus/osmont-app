@@ -13,33 +13,31 @@ export interface User {
   role: UserRole;
   blocked: boolean;
   can_select_project_manually: boolean;
-  costCenters: number[]; // Array of cost center IDs
+  costCenters: number[];
 }
 
 export interface Project {
   id: string;
   name:string;
-  budget: number;
-  deadline: string;
+  budget: number | null;
+  deadline: string | null;
   closed: boolean;
-  estimated_hours?: number;
+  estimated_hours: number | null;
   cost_center_id: number;
-  cost_center_name?: string; // Added from backend join
 }
 
 export interface ActiveSession {
   id: number;
-  user_id: string;
-  project_id: string;
-  start_time: string; // Comes as ISO string from backend
-  user_name: string;
-  project_name: string;
-  cost_center_id: number;
-  cost_center_name: string;
+  userId: string;
+  userName: string;
+  projectId: string;
+  projectName: string;
+  startTime: string; // ISO string from server
+  costCenterId: number;
 }
 
 export interface CompletedSession {
-  id: number;
+  id?: number;
   timestamp: string;
   employee_id: string;
   employee_name: string;
