@@ -1,3 +1,4 @@
+
 export {
     Camera,
     Play,
@@ -31,7 +32,11 @@ export {
     Check,
     LogOut,
     Menu,
+    ChevronLeft,
+    Target,
+    TrendingDown,
     Building2,
-    // FIX: Add missing ArrowLeftRight icon to exports.
-    ArrowLeftRight
+    ArrowLeftRight,
+    // FIX: Add missing ChevronDown icon export.
+    ChevronDown,
 } from 'lucide-react';

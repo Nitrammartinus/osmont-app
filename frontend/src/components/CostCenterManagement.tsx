@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
 import { CostCenter } from '../types';
@@ -17,7 +18,7 @@ const CostCenterManagement: React.FC = () => {
 
     const handleUpdate = async () => {
         if (editingCenter && editingCenter.name.trim()) {
-            await updateCostCenter(editingCenter.id, editingCenter.name.trim());
+            await updateCostCenter(editingCenter);
             setEditingCenter(null);
         }
     };
@@ -25,42 +26,48 @@ const CostCenterManagement: React.FC = () => {
     return (
         <div className="max-w-2xl mx-auto space-y-6">
             <div className="bg-white rounded-2xl shadow-xl p-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center"><Plus className="w-6 h-6 mr-2 text-blue-600"/>Pridať Nové Stredisko</h2>
-                <div className="flex gap-2">
+                <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <Building2 className="w-6 h-6 mr-3 text-blue-600" />
+                    Správa Stredísk
+                </h2>
+                <div className="flex items-center gap-2 mb-6">
                     <input
                         type="text"
                         value={newCenterName}
                         onChange={(e) => setNewCenterName(e.target.value)}
-                        placeholder="Názov strediska"
-                        className="flex-grow p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="Názov nového strediska"
+                        className="flex-grow p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
                     />
-                    <button onClick={handleAdd} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Pridať</button>
+                    <button onClick={handleAdd} className="bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 flex items-center">
+                        <Plus className="w-5 h-5" />
+                    </button>
                 </div>
-            </div>
-
-             <div className="bg-white rounded-2xl shadow-xl p-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center"><Building2 className="w-6 h-6 mr-2 text-gray-700"/>Existujúce Strediská</h2>
-                <div className="space-y-2">
+                <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-gray-700">Existujúce strediská</h3>
                     {costCenters.map(center => (
-                        <div key={center.id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                        <div key={center.id} className="bg-gray-50 p-3 rounded-lg flex items-center justify-between">
                             {editingCenter?.id === center.id ? (
                                 <input
                                     type="text"
                                     value={editingCenter.name}
                                     onChange={(e) => setEditingCenter({ ...editingCenter, name: e.target.value })}
                                     className="flex-grow p-1 border rounded-md"
+                                    autoFocus
                                 />
                             ) : (
-                                <span className="font-medium text-gray-800">{center.name}</span>
+                                <span className="font-medium">{center.name}</span>
                             )}
-                            <div className="flex gap-2">
+                            <div className="flex items-center space-x-2">
                                 {editingCenter?.id === center.id ? (
                                     <>
-                                        <button onClick={handleUpdate} className="p-2 text-green-600 hover:bg-green-100 rounded-full" title="Uložiť"><Check className="w-5 h-5"/></button>
-                                        <button onClick={() => setEditingCenter(null)} className="p-2 text-red-600 hover:bg-red-100 rounded-full" title="Zrušiť"><Edit className="w-5 h-5"/></button>
+                                        <button onClick={handleUpdate} title="Uložiť" className="p-2 text-green-600 hover:bg-green-100 rounded-full">
+                                            <Check className="w-5 h-5" />
+                                        </button>
                                     </>
                                 ) : (
-                                    <button onClick={() => setEditingCenter(center)} className="p-2 text-gray-500 hover:bg-yellow-100 hover:text-yellow-600 rounded-full" title="Upraviť"><Edit className="w-5 h-5"/></button>
+                                    <button onClick={() => setEditingCenter(center)} title="Upraviť" className="p-2 text-gray-500 hover:bg-yellow-100 hover:text-yellow-600 rounded-full">
+                                        <Edit className="w-5 h-5" />
+                                    </button>
                                 )}
                             </div>
                         </div>

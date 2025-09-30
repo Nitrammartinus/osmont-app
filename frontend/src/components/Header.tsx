@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTimeTracker } from '../hooks/useTimeTracker';
@@ -13,7 +14,11 @@ const Header: React.FC = () => {
     };
     
     const getInitials = (name: string) => {
-        return name.split(' ').map(n => n[0]).join('').toUpperCase();
+        const names = name.split(' ');
+        if (names.length > 1) {
+            return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
+        }
+        return name.substring(0, 2).toUpperCase();
     }
 
     return (
@@ -24,34 +29,29 @@ const Header: React.FC = () => {
                     <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Project Timer</h1>
                 </div>
 
-                <div className="flex items-center space-x-1 sm:space-x-2">
-                    {currentUser && (
-                         <>
-                            {(isManager || isAdmin) && (
-                                <button onClick={() => navigate('/evaluation')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Vyhodnotenie">
-                                    <TrendingUp className="w-5 h-5" />
-                                </button>
-                            )}
-                            {(isManager || isAdmin) && (
-                                <button onClick={() => navigate('/projects')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Správa Projektov">
-                                    <FolderPlus className="w-5 h-5" />
-                                </button>
-                            )}
-                            {isAdmin && (
-                                <button onClick={() => navigate('/users')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Správa Používateľov">
-                                    <Settings className="w-5 h-5" />
-                                </button>
-                            )}
-                             {isAdmin && (
-                                <button onClick={() => navigate('/cost-centers')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Správa Stredísk">
-                                    <Building2 className="w-5 h-5" />
-                                </button>
-                            )}
-                         </>
+                <div className="flex items-center space-x-1 sm:space-x-3">
+                    { (isManager || isAdmin) && (
+                        <button onClick={() => navigate('/evaluation')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Vyhodnotenie">
+                            <TrendingUp className="w-5 h-5" />
+                        </button>
                     )}
-                   
+                    {(isManager || isAdmin) && (
+                        <button onClick={() => navigate('/projects')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Projekty">
+                            <FolderPlus className="w-5 h-5" />
+                        </button>
+                    )}
+                    {isAdmin && (
+                        <>
+                        <button onClick={() => navigate('/users')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Používatelia">
+                            <Settings className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => navigate('/cost-centers')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Strediská">
+                            <Building2 className="w-5 h-5" />
+                        </button>
+                        </>
+                    )}
                     {currentUser && (
-                        <div className="flex items-center space-x-2 pl-2">
+                        <div className="flex items-center space-x-2 sm:space-x-4">
                              <div className="hidden sm:flex items-center bg-blue-50 px-3 py-1.5 rounded-full">
                                 <User className="w-4 h-4 text-blue-600 mr-2" />
                                 <span className="text-sm font-medium text-blue-800">{currentUser.name}</span>
