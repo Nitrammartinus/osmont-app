@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
+const path = require('path');
 const { pool, initializeDatabase } = require('./database');
 
 const app = express();
@@ -8,6 +9,9 @@ const port = process.env.PORT || 10000;
 
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from the React frontend app
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 // Helper function to get user's cost centers
 const getUserCostCenters = async (userId) => {
@@ -346,6 +350,11 @@ app.delete('/api/projects/:id', async (req, res) => {
         console.error(err);
         res.status(500).json({ message: 'Chyba pri mazaní projektu' });
     }
+});
+
+// All other GET requests not handled before will return our React app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
 });
 
 
