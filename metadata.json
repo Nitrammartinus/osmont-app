@@ -1,7 +1,0 @@
-{
-  "name": "Project Timer",
-  "description": "A comprehensive time tracking application with project and user management.",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}
