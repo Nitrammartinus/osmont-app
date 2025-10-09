@@ -1,20 +1,23 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { TimeTrackerProvider, useTimeTracker } from './hooks/useTimeTracker';
+import { useTimeTracker } from './hooks/useTimeTracker';
 import Header from './components/Header';
 import MainTrackingView from './components/MainTrackingView';
 import UserManagement from './components/UserManagement';
 import ProjectManagement from './components/ProjectManagement';
 import EvaluationDashboard from './components/EvaluationDashboard';
 import CostCenterManagement from './components/CostCenterManagement';
-import { Shield } from './components/Icons';
 import { UserRole } from './types';
 
 const ProtectedRoute: React.FC<{ allowedRoles: UserRole[], children: React.ReactNode }> = ({ allowedRoles, children }) => {
     const { currentUser, isLoading } = useTimeTracker();
 
     if (isLoading) {
-        return <div className="flex justify-center items-center h-full"><p>Načítava sa...</p></div>;
+        return (
+            <div className="flex justify-center items-center h-full pt-16">
+                <p className="text-gray-600">Načítava sa aplikácia...</p>
+            </div>
+        );
     }
     
     if (!currentUser || !allowedRoles.includes(currentUser.role)) {
@@ -24,7 +27,7 @@ const ProtectedRoute: React.FC<{ allowedRoles: UserRole[], children: React.React
     return <>{children}</>;
 };
 
-const AppContent: React.FC = () => {
+const App: React.FC = () => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-100 flex flex-col font-sans">
             <Header />
@@ -55,14 +58,6 @@ const AppContent: React.FC = () => {
                 </Routes>
             </main>
         </div>
-    );
-};
-
-const App: React.FC = () => {
-    return (
-        <TimeTrackerProvider>
-            <AppContent />
-        </TimeTrackerProvider>
     );
 };
 
