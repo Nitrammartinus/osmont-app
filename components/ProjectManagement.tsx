@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
 import { Project } from '../types';
 import { FolderPlus, Edit, Trash2, Lock, Unlock, QrCode, ChevronLeft, Download } from './Icons';
@@ -17,9 +17,9 @@ const ProjectManagement: React.FC = () => {
         }
         await addProject({
             name: newProject.name,
-            budget: newProject.budget || null,
+            budget: newProject.budget || undefined,
             deadline: newProject.deadline,
-            estimated_hours: newProject.estimated_hours || null,
+            estimated_hours: newProject.estimated_hours || undefined,
             cost_center_id: newProject.cost_center_id,
         });
         setNewProject({ name: '', budget: 0, deadline: '', estimated_hours: undefined, cost_center_id: undefined });
@@ -105,13 +105,13 @@ const ProjectManagement: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><FolderPlus className="w-5 h-5 mr-2 text-green-600" />Pridať Nový Projekt</h3>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input type="text" placeholder="Názov Projektu" value={newProject.name || ''} onChange={e => setNewProject({...newProject, name: e.target.value})} className="w-full p-2 border rounded-lg" />
-                    <input type="number" placeholder="Rozpočet (€)" value={newProject.budget || ''} onChange={e => setNewProject({...newProject, budget: e.target.value ? Number(e.target.value) : null})} className="w-full p-2 border rounded-lg" />
+                    <input type="number" placeholder="Rozpočet (€)" value={newProject.budget || ''} onChange={e => setNewProject({...newProject, budget: e.target.value ? Number(e.target.value) : undefined})} className="w-full p-2 border rounded-lg" />
                     <input type="date" value={newProject.deadline || ''} onChange={e => setNewProject({...newProject, deadline: e.target.value})} className="w-full p-2 border rounded-lg" />
                     <select value={newProject.cost_center_id || ''} onChange={e => setNewProject({...newProject, cost_center_id: Number(e.target.value)})} className="w-full p-2 border rounded-lg">
                        <option value="" disabled>Vyberte stredisko</option>
                        {costCenters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
-                    <input type="number" placeholder="Odhadované hodiny" value={newProject.estimated_hours || ''} onChange={e => setNewProject({...newProject, estimated_hours: e.target.value ? Number(e.target.value) : null})} className="w-full p-2 border rounded-lg" />
+                    <input type="number" placeholder="Odhadované hodiny" value={newProject.estimated_hours || ''} onChange={e => setNewProject({...newProject, estimated_hours: e.target.value ? Number(e.target.value) : undefined})} className="w-full p-2 border rounded-lg" />
                 </div>
                 <button onClick={handleAddProject} className="mt-4 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Pridať Projekt</button>
             </div>

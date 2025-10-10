@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-import { User, UserRole, CostCenter } from '../types';
+import { User, UserRole } from '../types';
 import { UserPlus, Edit, Trash2, Ban, Check, QrCode, ChevronLeft, Download } from './Icons';
 import { QRCodeCanvas } from 'qrcode.react';
 
@@ -37,7 +37,6 @@ const UserManagement: React.FC = () => {
         setShowQRCodeData({ user, content: `USER_ID:${user.id}` });
     };
     
-    // FIX: Replaced implementation to use functional updates for `useState` to resolve TypeScript type inference issue.
     const handleCostCenterChange = (centerId: number, checked: boolean, isEditing: boolean) => {
         if (isEditing) {
             setEditingUser(prev => {

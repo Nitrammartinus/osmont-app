@@ -32,8 +32,8 @@ export {
     LogOut,
     Menu,
     ChevronLeft,
-    Building2,
-    ChevronDown,
-    // FIX: Add missing ArrowLeftRight icon export used in EvaluationDashboard.
+    Target,
+    TrendingDown,
     ArrowLeftRight,
+    Building2,
 } from 'lucide-react';

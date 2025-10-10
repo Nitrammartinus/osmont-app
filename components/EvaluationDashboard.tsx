@@ -98,7 +98,7 @@ const ProjectDetailsView: React.FC<{ projectData: ProjectEvaluationData; onBack:
                  </div>
                  <div className="space-y-2 max-h-96 overflow-y-auto">
                     {projectData.allSessions.map((session, index) => (
-                        <div key={index} className="bg-gray-50 p-2 rounded-lg text-sm flex justify-between">
+                        <div key={session.id || index} className="bg-gray-50 p-2 rounded-lg text-sm flex justify-between">
                             <span>{session.employee_name} dňa {new Date(session.timestamp).toLocaleDateString()}</span>
                             <span className="font-semibold">{`${Math.floor(session.duration_minutes / 60)}h ${session.duration_minutes % 60}m`}</span>
                         </div>
@@ -163,8 +163,12 @@ const EvaluationDashboard: React.FC = () => {
     };
 
     if (selectedProject) {
-        const updatedProjectData = filteredEvaluationData.find(p => p.id === selectedProject.id) || selectedProject;
-        return <ProjectDetailsView projectData={updatedProjectData} onBack={() => setSelectedProject(null)} />;
+        const updatedProjectData = filteredEvaluationData.find(p => p.id === selectedProject.id);
+        if (updatedProjectData) {
+            return <ProjectDetailsView projectData={updatedProjectData} onBack={() => setSelectedProject(null)} />;
+        }
+        // Fallback if project is no longer in the filtered list
+        setSelectedProject(null);
     }
 
     return (
