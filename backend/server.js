@@ -8,22 +8,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Middleware to ensure database is initialized on every request
-// This is necessary for serverless environments with cold starts.
-const ensureDbInitialized = async (req, res, next) => {
-    try {
-        await initializeDatabase();
-        next();
-    } catch (error) {
-        console.error("CRITICAL: Database initialization check failed.", error);
-        res.status(503).json({ message: "Služba je dočasne nedostupná z dôvodu problému s databázou." });
-    }
-};
-
-// Apply middleware to all API routes handled by this server
-app.use(ensureDbInitialized);
-
-
 // Helper function to get user's cost centers
 const getUserCostCenters = async (userId) => {
     const res = await pool.query('SELECT center_id FROM user_cost_centers WHERE user_id = $1', [userId]);
@@ -363,5 +347,21 @@ app.delete('/api/projects/:id', async (req, res) => {
     }
 });
 
-// Export the app for Vercel's serverless environment
-module.exports = app;
+// --- Server Startup Logic for Render ---
+const startServer = async () => {
+    try {
+        console.log('Server starting, initializing database...');
+        await initializeDatabase();
+        console.log('Database initialized successfully.');
+
+        const PORT = process.env.PORT || 10000;
+        app.listen(PORT, () => {
+            console.log(`Server is running and listening on port ${PORT}`);
+        });
+    } catch (error) {
+        console.error('Failed to initialize database and start server:', error);
+        process.exit(1); // Exit if database initialization fails
+    }
+};
+
+startServer();
