@@ -69,8 +69,15 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 ...options,
             });
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                } else {
+                    const errorText = await response.text();
+                    console.error("Server returned non-JSON error:", errorText);
+                    throw new Error(`Chyba servera: ${response.status} ${response.statusText}`);
+                }
             }
             if (response.status === 204) return null;
             return await response.json();
