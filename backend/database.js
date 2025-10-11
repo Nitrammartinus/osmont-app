@@ -1,3 +1,4 @@
+
 const { Pool } = require('pg');
 const { initialUsers, initialProjects, initialCostCenters, initialUserCostCenters } = require('./initialData');
 
@@ -161,4 +162,4 @@ const initializeDatabase = () => {
     return initializationPromise;
 };
 
-module.exports = { pool, initializeDatabase };
+module.exports = { pool, initializeDatabase };	
