@@ -81,9 +81,12 @@ const initializeDatabase = async () => {
         if (res.rows[0].count === '0') {
             console.log('Database is empty, seeding initial data...');
 
-            // Vloženie stredísk (bez manuálneho ID)
+            // Vloženie stredísk a mapovanie nových ID
+            const centerIdMap = {}; // { oldId: newId }
             for (const center of initialCostCenters) {
-                await client.query('INSERT INTO cost_centers (name) VALUES ($1)', [center.name]);
+                const insertRes = await client.query('INSERT INTO cost_centers (name) VALUES ($1) RETURNING id', [center.name]);
+                const newId = insertRes.rows[0].id;
+                centerIdMap[center.id] = newId;
             }
             console.log('Cost centers seeded successfully.');
 
@@ -96,18 +99,20 @@ const initializeDatabase = async () => {
             }
             console.log('Users seeded successfully.');
             
-            // Vloženie projektov
+            // Vloženie projektov s použitím nových ID stredísk
             for (const project of initialProjects) {
+                const newCostCenterId = centerIdMap[project.cost_center_id];
                  await client.query(
                     'INSERT INTO projects (id, name, budget, deadline, closed, estimated_hours, cost_center_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-                    [project.id, project.name, project.budget, project.deadline, project.closed, project.estimated_hours, project.cost_center_id]
+                    [project.id, project.name, project.budget, project.deadline, project.closed, project.estimated_hours, newCostCenterId]
                 );
             }
             console.log('Projects seeded successfully.');
 
-            // Vloženie prepojení používateľov a stredísk
+            // Vloženie prepojení používateľov a stredísk s použitím nových ID
             for (const ucc of initialUserCostCenters) {
-                await client.query('INSERT INTO user_cost_centers (user_id, center_id) VALUES ($1, $2)', [ucc.user_id, ucc.center_id]);
+                const newCenterId = centerIdMap[ucc.center_id];
+                await client.query('INSERT INTO user_cost_centers (user_id, center_id) VALUES ($1, $2)', [ucc.user_id, newCenterId]);
             }
             console.log('User-cost center links seeded successfully.');
         } else {
