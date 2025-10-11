@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const saltRounds = 10;
 
 // Passwords are pre-hashed for security. Plain text is 'admin123', 'password123', etc.
