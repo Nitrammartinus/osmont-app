@@ -8,16 +8,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Helper function to get user's cost centers
-const getUserCostCenters = async (userId) => {
-    const res = await pool.query('SELECT center_id FROM user_cost_centers WHERE user_id = $1', [userId]);
-    return res.rows.map(row => row.center_id);
-};
-
 // --- AUTH ---
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     try {
+        await initializeDatabase(); // Ensure DB is ready
         const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
         const user = result.rows[0];
 
@@ -34,9 +29,16 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+// Helper function to get user's cost centers
+const getUserCostCenters = async (userId) => {
+    const res = await pool.query('SELECT center_id FROM user_cost_centers WHERE user_id = $1', [userId]);
+    return res.rows.map(row => row.center_id);
+};
+
 // --- INITIAL DATA ---
 app.get('/api/initial-data', async (req, res) => {
      try {
+        await initializeDatabase(); // Ensure DB is ready
         const usersRes = await pool.query('SELECT id, name, username, role, blocked, can_select_project_manually FROM users ORDER BY name');
         const projectsRes = await pool.query('SELECT * FROM projects ORDER BY name');
         const costCentersRes = await pool.query('SELECT * FROM cost_centers ORDER BY name');
@@ -69,7 +71,8 @@ app.post('/api/users', async (req, res) => {
     if (!name || !username || !password) {
         return res.status(400).json({ message: 'Meno, používateľské meno a heslo sú povinné.' });
     }
-
+    
+    await initializeDatabase(); // Ensure DB is ready
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -107,6 +110,7 @@ app.put('/api/users/:id', async (req, res) => {
     const { id } = req.params;
     const { name, username, role, blocked, can_select_project_manually, password, costCenters } = req.body;
 
+    await initializeDatabase(); // Ensure DB is ready
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -150,6 +154,7 @@ app.put('/api/users/:id', async (req, res) => {
 
 app.delete('/api/users/:id', async (req, res) => {
     try {
+        await initializeDatabase(); // Ensure DB is ready
         const { id } = req.params;
         const deleteRes = await pool.query('DELETE FROM users WHERE id = $1', [id]);
         if (deleteRes.rowCount === 0) {
@@ -166,6 +171,7 @@ app.delete('/api/users/:id', async (req, res) => {
 // --- ACTIVE SESSIONS ---
 app.get('/api/active-sessions', async (req, res) => {
     try {
+        await initializeDatabase(); // Ensure DB is ready
         const result = await pool.query(`
             SELECT 
                 s.id, 
@@ -189,6 +195,7 @@ app.get('/api/active-sessions', async (req, res) => {
 app.post('/api/active-sessions', async (req, res) => {
     const { userId, projectId } = req.body;
     try {
+        await initializeDatabase(); // Ensure DB is ready
         const result = await pool.query(
             'INSERT INTO active_sessions (user_id, project_id, start_time) VALUES ($1, $2, NOW()) RETURNING *',
             [userId, projectId]
@@ -202,6 +209,8 @@ app.post('/api/active-sessions', async (req, res) => {
 
 app.delete('/api/active-sessions/:userId', async (req, res) => {
     const { userId } = req.params;
+    
+    await initializeDatabase(); // Ensure DB is ready
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -241,6 +250,7 @@ app.delete('/api/active-sessions/:userId', async (req, res) => {
 // --- COST CENTERS ---
 app.get('/api/cost-centers', async (req, res) => {
     try {
+        await initializeDatabase();
         const result = await pool.query('SELECT * FROM cost_centers ORDER BY name');
         res.json(result.rows);
     } catch(err) {
@@ -249,6 +259,7 @@ app.get('/api/cost-centers', async (req, res) => {
 });
 app.post('/api/cost-centers', async (req, res) => {
     try {
+        await initializeDatabase();
         const { name } = req.body;
         const result = await pool.query('INSERT INTO cost_centers (name) VALUES ($1) RETURNING *', [name]);
         res.status(201).json(result.rows[0]);
@@ -258,6 +269,7 @@ app.post('/api/cost-centers', async (req, res) => {
 });
 app.put('/api/cost-centers/:id', async (req, res) => {
     try {
+        await initializeDatabase();
         const { id } = req.params;
         const { name } = req.body;
         const result = await pool.query('UPDATE cost_centers SET name = $1 WHERE id = $2 RETURNING *', [name, id]);
@@ -268,6 +280,7 @@ app.put('/api/cost-centers/:id', async (req, res) => {
 });
 app.delete('/api/cost-centers/:id', async (req, res) => {
     try {
+        await initializeDatabase();
         const { id } = req.params;
         await pool.query('DELETE FROM cost_centers WHERE id = $1', [id]);
         res.status(204).send();
@@ -284,6 +297,7 @@ app.post('/api/projects', async (req, res) => {
         return res.status(400).json({ message: 'Názov, deadline a stredisko sú povinné.' });
     }
     try {
+        await initializeDatabase();
         const newProjectRes = await pool.query(
             'INSERT INTO projects (id, name, budget, deadline, closed, estimated_hours, cost_center_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
             [`proj${Date.now()}`, name, budget, deadline, false, estimated_hours, cost_center_id]
@@ -302,6 +316,7 @@ app.put('/api/projects/:id', async (req, res) => {
         return res.status(400).json({ message: 'Názov, deadline a stredisko sú povinné.' });
     }
     try {
+        await initializeDatabase();
         const updatedProjectRes = await pool.query(
             'UPDATE projects SET name = $1, budget = $2, deadline = $3, estimated_hours = $4, cost_center_id = $5 WHERE id = $6 RETURNING *',
             [name, budget, deadline, estimated_hours, cost_center_id, id]
@@ -319,6 +334,7 @@ app.put('/api/projects/:id', async (req, res) => {
 
 app.put('/api/projects/:id/toggle-status', async (req, res) => {
     try {
+        await initializeDatabase();
         const { id } = req.params;
         const projectRes = await pool.query('SELECT closed FROM projects WHERE id = $1', [id]);
         if (projectRes.rows.length === 0) {
@@ -335,6 +351,7 @@ app.put('/api/projects/:id/toggle-status', async (req, res) => {
 
 app.delete('/api/projects/:id', async (req, res) => {
     try {
+        await initializeDatabase();
         const { id } = req.params;
         const deleteRes = await pool.query('DELETE FROM projects WHERE id = $1', [id]);
         if (deleteRes.rowCount === 0) {
@@ -347,21 +364,30 @@ app.delete('/api/projects/:id', async (req, res) => {
     }
 });
 
-// --- Server Startup Logic for Render ---
-const startServer = async () => {
-    try {
-        console.log('Server starting, initializing database...');
-        await initializeDatabase();
-        console.log('Database initialized successfully.');
 
-        const PORT = process.env.PORT || 10000;
-        app.listen(PORT, () => {
-            console.log(`Server is running and listening on port ${PORT}`);
-        });
-    } catch (error) {
-        console.error('Failed to initialize database and start server:', error);
-        process.exit(1); // Exit if database initialization fails
-    }
-};
+// --- PLATFORM-SPECIFIC SERVER STARTUP ---
+if (process.env.VERCEL) {
+    // VERCEL: Export the app for the serverless environment.
+    // The singleton promise in `initializeDatabase` will be resolved on the first API call
+    // for each new serverless function instance.
+    module.exports = app;
+} else {
+    // RENDER / LOCAL: Start a persistent server.
+    // Initialize the database once on startup, then begin listening for requests.
+    const startPersistentServer = async () => {
+        try {
+            console.log('Server starting, initializing database...');
+            await initializeDatabase();
+            console.log('Database initialized successfully.');
 
-startServer();
+            const PORT = process.env.PORT || 10000;
+            app.listen(PORT, () => {
+                console.log(`Server is running and listening on port ${PORT}`);
+            });
+        } catch (error) {
+            console.error('Failed to initialize database and start server:', error);
+            process.exit(1); // Exit if database initialization fails
+        }
+    };
+    startPersistentServer();
+}
