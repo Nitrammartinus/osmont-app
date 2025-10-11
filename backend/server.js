@@ -348,6 +348,7 @@ app.delete('/api/projects/:id', async (req, res) => {
     }
 });
 
+
 const startServer = async () => {
     try {
         await initializeDatabase();
