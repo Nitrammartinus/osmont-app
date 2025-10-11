@@ -93,13 +93,13 @@ const initializeDatabase = () => {
                 // Seed data
                 console.log('Seeding cost centers...');
                 for (const center of initialCostCenters) {
-                    await client.query('INSERT INTO cost_centers (name) VALUES ($1)', [center.name]);
+                    await client.query('INSERT INTO cost_centers (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [center.name]);
                 }
                 
                 console.log('Seeding users...');
                 for (const user of initialUsers) {
                     await client.query(
-                        'INSERT INTO users (id, name, username, password, role, blocked, can_select_project_manually) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                        'INSERT INTO users (id, name, username, password, role, blocked, can_select_project_manually) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING',
                         [user.id, user.name, user.username, user.password, user.role, user.blocked, user.can_select_project_manually]
                     );
                 }
@@ -107,18 +107,18 @@ const initializeDatabase = () => {
                 console.log('Seeding projects...');
                 for (const project of initialProjects) {
                      await client.query(
-                        'INSERT INTO projects (id, name, budget, deadline, closed, estimated_hours, cost_center_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                        'INSERT INTO projects (id, name, budget, deadline, closed, estimated_hours, cost_center_id) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING',
                         [project.id, project.name, project.budget, project.deadline, project.closed, project.estimated_hours, project.cost_center_id]
                     );
                 }
                 
                 console.log('Seeding user-cost center links...');
                 for (const ucc of initialUserCostCenters) {
-                    await client.query('INSERT INTO user_cost_centers (user_id, center_id) VALUES ($1, $2)', [ucc.user_id, ucc.center_id]);
+                    await client.query('INSERT INTO user_cost_centers (user_id, center_id) VALUES ($1, $2) ON CONFLICT (user_id, center_id) DO NOTHING', [ucc.user_id, ucc.center_id]);
                 }
                 
                 // Mark database as seeded
-                await client.query("INSERT INTO app_metadata (key, value) VALUES ('is_seeded', 'true')");
+                await client.query("INSERT INTO app_metadata (key, value) VALUES ('is_seeded', 'true') ON CONFLICT (key) DO NOTHING");
                 console.log('Database seeded successfully.');
             } else {
                  console.log('Database already seeded, skipping.');
