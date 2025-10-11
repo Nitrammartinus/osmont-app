@@ -3,9 +3,7 @@ const { initialUsers, initialProjects, initialCostCenters, initialUserCostCenter
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
+    // The explicit ssl config object is removed. Vercel Postgres handles SSL via the connection string.
 });
 
 let initializationPromise = null;
