@@ -1,10 +1,20 @@
 const { Pool } = require('pg');
 const { initialUsers, initialProjects, initialCostCenters, initialUserCostCenters } = require('./initialData');
 
+// Enhanced configuration for connecting to Neon/Vercel Postgres from a serverless environment
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    // The explicit ssl config object is removed. Vercel Postgres handles SSL via the connection string.
+    // Neon requires SSL. The connection string should include ?sslmode=require
+    // Adding this is a robust way to ensure SSL is enabled, even if the string is incomplete.
+    ssl: {
+        rejectUnauthorized: false,
+    },
+    // Recommended pool settings for serverless environments to avoid connection exhaustion
+    max: 1, // Only one active connection per function instance
+    idleTimeoutMillis: 20000, // Close idle clients after 20 seconds
+    connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
 });
+
 
 let initializationPromise = null;
 
@@ -14,7 +24,7 @@ const initializeDatabase = () => {
     }
 
     initializationPromise = (async () => {
-        console.log('Attempting to connect to the database...');
+        console.log('Attempting to initialize database...');
         const client = await pool.connect();
         console.log('Database client connected.');
         try {
@@ -129,7 +139,17 @@ const initializeDatabase = () => {
         } catch (err) {
             console.log('An error occurred during initialization, rolling back transaction.');
             await client.query('ROLLBACK');
+            
+            console.error('##################################################');
+            console.error('FATAL: DATABASE INITIALIZATION FAILED');
+            console.error('##################################################');
             console.error('Error during database initialization:', err);
+            console.error('Error Name:', err.name);
+            console.error('Error Code:', err.code);
+            console.error('Error Message:', err.message);
+            console.error('Stack Trace:', err.stack);
+            console.error('##################################################');
+
             initializationPromise = null; // Reset on failure to allow retry
             throw err;
         } finally {
