@@ -5,16 +5,21 @@ const { pool, initializeDatabase } = require('./database');
 
 const app = express();
 
-// Initialize the database on cold start.
-// This returns a promise, but we don't await it here. Subsequent requests
-// will be queued by the pg pool until the connection is ready.
-// Catching errors to prevent unhandled promise rejection crashes.
-initializeDatabase().catch(err => {
-    console.error("FATAL: Database initialization failed.", err);
-});
-
 app.use(cors());
 app.use(express.json());
+
+// Middleware to ensure DB is initialized before handling any API request.
+// This will handle the serverless cold start scenario gracefully.
+app.use('/api', async (req, res, next) => {
+    try {
+        await initializeDatabase();
+        next();
+    } catch (error) {
+        console.error("Database is not ready:", error);
+        res.status(503).json({ message: 'Služba je dočasne nedostupná, databáza sa inicializuje. Skúste to prosím znova o chvíľu.' });
+    }
+});
+
 
 // Helper function to get user's cost centers
 const getUserCostCenters = async (userId) => {
