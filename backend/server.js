@@ -4,7 +4,14 @@ const bcrypt = require('bcryptjs');
 const { pool, initializeDatabase } = require('./database');
 
 const app = express();
-const port = process.env.PORT || 10000;
+
+// Initialize the database on cold start.
+// This returns a promise, but we don't await it here. Subsequent requests
+// will be queued by the pg pool until the connection is ready.
+// Catching errors to prevent unhandled promise rejection crashes.
+initializeDatabase().catch(err => {
+    console.error("FATAL: Database initialization failed.", err);
+});
 
 app.use(cors());
 app.use(express.json());
@@ -348,17 +355,5 @@ app.delete('/api/projects/:id', async (req, res) => {
     }
 });
 
-
-const startServer = async () => {
-    try {
-        await initializeDatabase();
-        app.listen(port, () => {
-            console.log(`Server beží na porte ${port}`);
-        });
-    } catch (err) {
-        console.error('Failed to start server:', err);
-        process.exit(1);
-    }
-};
-
-startServer();
+// Export the app for Vercel
+module.exports = app;
