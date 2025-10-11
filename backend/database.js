@@ -14,11 +14,15 @@ const initializeDatabase = () => {
     }
 
     initializationPromise = (async () => {
+        console.log('Attempting to connect to the database...');
         const client = await pool.connect();
+        console.log('Database client connected.');
         try {
             await client.query('BEGIN');
+            console.log('Transaction started.');
 
-            // Vytvorenie tabuliek, ak neexistujú
+            // Create all tables if they don't exist
+            console.log('Creating tables...');
             await client.query(`
                 CREATE TABLE IF NOT EXISTS users (
                     id VARCHAR(255) PRIMARY KEY,
@@ -30,14 +34,12 @@ const initializeDatabase = () => {
                     can_select_project_manually BOOLEAN NOT NULL DEFAULT false
                 );
             `);
-
             await client.query(`
                 CREATE TABLE IF NOT EXISTS cost_centers (
                     id SERIAL PRIMARY KEY,
                     name VARCHAR(255) UNIQUE NOT NULL
                 );
             `);
-
             await client.query(`
                 CREATE TABLE IF NOT EXISTS projects (
                     id VARCHAR(255) PRIMARY KEY,
@@ -49,7 +51,6 @@ const initializeDatabase = () => {
                     cost_center_id INTEGER REFERENCES cost_centers(id) ON DELETE SET NULL
                 );
             `);
-            
             await client.query(`
                 CREATE TABLE IF NOT EXISTS user_cost_centers (
                     user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
@@ -57,7 +58,6 @@ const initializeDatabase = () => {
                     PRIMARY KEY (user_id, center_id)
                 );
             `);
-
             await client.query(`
                 CREATE TABLE IF NOT EXISTS active_sessions (
                     id SERIAL PRIMARY KEY,
@@ -66,7 +66,6 @@ const initializeDatabase = () => {
                     start_time TIMESTAMPTZ NOT NULL
                 );
             `);
-
             await client.query(`
                 CREATE TABLE IF NOT EXISTS completed_sessions (
                     id SERIAL PRIMARY KEY,
@@ -78,55 +77,64 @@ const initializeDatabase = () => {
                     duration_minutes INTEGER
                 );
             `);
-
+             await client.query(`
+                CREATE TABLE IF NOT EXISTS app_metadata (
+                    key VARCHAR(50) PRIMARY KEY,
+                    value VARCHAR(50)
+                );
+             `);
             console.log('Tables created or already exist.');
 
-            // Naplnenie dátami, ak je databáza prázdna
-            const res = await client.query('SELECT COUNT(*) FROM users');
-            if (res.rows[0].count === '0') {
-                console.log('Database is empty, seeding initial data...');
+            // Check if database has been seeded
+            const metadataRes = await client.query("SELECT value FROM app_metadata WHERE key = 'is_seeded'");
+            if (metadataRes.rows.length === 0) {
+                console.log('Database is not seeded. Seeding initial data...');
 
-                // Vloženie stredísk (bez manuálneho ID)
+                // Seed data
+                console.log('Seeding cost centers...');
                 for (const center of initialCostCenters) {
                     await client.query('INSERT INTO cost_centers (name) VALUES ($1)', [center.name]);
                 }
-                console.log('Cost centers seeded successfully.');
-
-                // Vloženie používateľov
+                
+                console.log('Seeding users...');
                 for (const user of initialUsers) {
                     await client.query(
                         'INSERT INTO users (id, name, username, password, role, blocked, can_select_project_manually) VALUES ($1, $2, $3, $4, $5, $6, $7)',
                         [user.id, user.name, user.username, user.password, user.role, user.blocked, user.can_select_project_manually]
                     );
                 }
-                console.log('Users seeded successfully.');
                 
-                // Vloženie projektov
+                console.log('Seeding projects...');
                 for (const project of initialProjects) {
                      await client.query(
                         'INSERT INTO projects (id, name, budget, deadline, closed, estimated_hours, cost_center_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
                         [project.id, project.name, project.budget, project.deadline, project.closed, project.estimated_hours, project.cost_center_id]
                     );
                 }
-                console.log('Projects seeded successfully.');
-
-                // Vloženie prepojení používateľov a stredísk
+                
+                console.log('Seeding user-cost center links...');
                 for (const ucc of initialUserCostCenters) {
                     await client.query('INSERT INTO user_cost_centers (user_id, center_id) VALUES ($1, $2)', [ucc.user_id, ucc.center_id]);
                 }
-                console.log('User-cost center links seeded successfully.');
+                
+                // Mark database as seeded
+                await client.query("INSERT INTO app_metadata (key, value) VALUES ('is_seeded', 'true')");
+                console.log('Database seeded successfully.');
             } else {
-                 console.log('Database already contains data, skipping seed.');
+                 console.log('Database already seeded, skipping.');
             }
 
             await client.query('COMMIT');
+            console.log('Transaction committed successfully. Database is ready.');
         } catch (err) {
+            console.log('An error occurred during initialization, rolling back transaction.');
             await client.query('ROLLBACK');
             console.error('Error during database initialization:', err);
             initializationPromise = null; // Reset on failure to allow retry
             throw err;
         } finally {
             client.release();
+            console.log('Database client released.');
         }
     })();
 
