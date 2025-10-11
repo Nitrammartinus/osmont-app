@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTimeTracker } from '../hooks/useTimeTracker';
-import { Clock, User, LogOut, Settings, FolderPlus, TrendingUp } from './Icons';
+import { Clock, User, LogOut, Settings, FolderPlus, TrendingUp, Building2 } from './Icons';
 
 const Header: React.FC = () => {
     const { currentUser, setCurrentUser, isAdmin, isManager } = useTimeTracker();
@@ -42,6 +42,9 @@ const Header: React.FC = () => {
                     )}
                     {isAdmin && (
                         <>
+                             <button onClick={() => navigate('/cost-centers')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Strediská">
+                                <Building2 className="w-5 h-5" />
+                            </button>
                             <button onClick={() => navigate('/users')} className="p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-blue-600 transition-colors" title="Používatelia">
                                 <Settings className="w-5 h-5" />
                             </button>

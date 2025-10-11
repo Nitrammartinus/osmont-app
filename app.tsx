@@ -6,6 +6,7 @@ import MainTrackingView from './components/MainTrackingView';
 import UserManagement from './components/UserManagement';
 import ProjectManagement from './components/ProjectManagement';
 import EvaluationDashboard from './components/EvaluationDashboard';
+import CostCenterManagement from './components/CostCenterManagement';
 import { UserRole } from './types';
 
 const ProtectedRoute: React.FC<{ allowedRoles: UserRole[], children: React.ReactNode }> = ({ allowedRoles, children }) => {
@@ -41,6 +42,11 @@ const App: React.FC = () => {
                     <Route path="/projects" element={
                         <ProtectedRoute allowedRoles={['admin', 'manager']}>
                             <ProjectManagement />
+                        </ProtectedRoute>
+                    } />
+                     <Route path="/cost-centers" element={
+                        <ProtectedRoute allowedRoles={['admin']}>
+                            <CostCenterManagement />
                         </ProtectedRoute>
                     } />
                     <Route path="/users" element={
