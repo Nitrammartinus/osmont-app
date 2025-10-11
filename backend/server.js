@@ -4,22 +4,10 @@ const bcrypt = require('bcryptjs');
 const { pool, initializeDatabase } = require('./database');
 
 const app = express();
+const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 app.use(express.json());
-
-// Middleware to ensure DB is initialized before handling any API request.
-// This will handle the serverless cold start scenario gracefully.
-app.use('/api', async (req, res, next) => {
-    try {
-        await initializeDatabase();
-        next();
-    } catch (error) {
-        console.error("Database is not ready:", error);
-        res.status(503).json({ message: 'Služba je dočasne nedostupná, databáza sa inicializuje. Skúste to prosím znova o chvíľu.' });
-    }
-});
-
 
 // Helper function to get user's cost centers
 const getUserCostCenters = async (userId) => {
@@ -360,5 +348,19 @@ app.delete('/api/projects/:id', async (req, res) => {
     }
 });
 
-// Export the app for Vercel
-module.exports = app;
+const startServer = async () => {
+    try {
+        console.log('Attempting to initialize database...');
+        await initializeDatabase();
+        console.log('Database initialized successfully.');
+
+        app.listen(PORT, () => {
+            console.log(`Server listening on port ${PORT}`);
+        });
+    } catch (error) {
+        console.error('Failed to initialize database and start server:', error);
+        process.exit(1);
+    }
+};
+
+startServer();
