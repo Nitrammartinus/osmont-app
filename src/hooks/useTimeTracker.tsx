@@ -96,9 +96,9 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         ]);
 
         if (initialData) {
-            setUsers(initialData.users || []);
-            setProjects(initialData.projects || []);
-            setCostCenters(initialData.costCenters || []);
+            setUsers((initialData.users || []).sort((a, b) => a.name.localeCompare(b.name)));
+            setProjects((initialData.projects || []).sort((a, b) => a.name.localeCompare(b.name)));
+            setCostCenters((initialData.costCenters || []).sort((a, b) => a.name.localeCompare(b.name)));
             setCompletedSessions(initialData.completedSessions || []);
         }
         if (activeSessionsData) {
