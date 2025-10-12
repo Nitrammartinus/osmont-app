@@ -41,6 +41,7 @@ interface TimeTrackerContextType {
     
     stopSessionForUser: (user: User) => Promise<void>;
     setUserForStopConfirmation: (user: User | null) => void;
+    startSession: (userId: string, projectId: string) => Promise<void>;
     
     projectEvaluation: Record<string, any>;
     exportToExcel: (sessions: CompletedSession[]) => void;
@@ -69,8 +70,15 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 ...options,
             });
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                } else {
+                    const errorText = await response.text();
+                    console.error("Server returned non-JSON error:", errorText);
+                    throw new Error(`Chyba servera: ${response.status} ${response.statusText}`);
+                }
             }
             if (response.status === 204) return null;
             return await response.json();
@@ -89,9 +97,9 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         ]);
 
         if (initialData) {
-            setUsers(initialData.users || []);
-            setProjects(initialData.projects || []);
-            setCostCenters(initialData.costCenters || []);
+            setUsers((initialData.users || []).sort((a: User, b: User) => a.name.localeCompare(b.name)));
+            setProjects((initialData.projects || []).sort((a: Project, b: Project) => a.name.localeCompare(b.name)));
+            setCostCenters((initialData.costCenters || []).sort((a: CostCenter, b: CostCenter) => a.name.localeCompare(b.name)));
             setCompletedSessions(initialData.completedSessions || []);
         }
         if (activeSessionsData) {
@@ -213,11 +221,11 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // --- User Management ---
     const addUser = async (userData: Partial<User>) => {
         const newUser = await fetchApi('/api/users', { method: 'POST', body: JSON.stringify(userData) });
-        if(newUser) setUsers(prev => [...prev, newUser]);
+        if(newUser) setUsers(prev => [...prev, newUser].sort((a, b) => a.name.localeCompare(b.name)));
     };
     const updateUser = async (user: User) => {
         const updatedUser = await fetchApi(`/api/users/${user.id}`, { method: 'PUT', body: JSON.stringify(user) });
-        if(updatedUser) setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
+        if(updatedUser) setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u).sort((a, b) => a.name.localeCompare(b.name)));
     };
     const deleteUser = async (userId: string) => {
         if (confirm('Naozaj chcete vymazať tohto používateľa?')) {
@@ -229,11 +237,11 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // --- Project Management ---
     const addProject = async (projectData: Partial<Project>) => {
         const newProject = await fetchApi('/api/projects', { method: 'POST', body: JSON.stringify(projectData) });
-        if(newProject) setProjects(prev => [...prev, newProject]);
+        if(newProject) setProjects(prev => [...prev, newProject].sort((a, b) => a.name.localeCompare(b.name)));
     };
     const updateProject = async (project: Project) => {
         const updatedProject = await fetchApi(`/api/projects/${project.id}`, { method: 'PUT', body: JSON.stringify(project) });
-        if(updatedProject) setProjects(prev => prev.map(p => p.id === project.id ? updatedProject : p));
+        if(updatedProject) setProjects(prev => prev.map(p => p.id === project.id ? updatedProject : p).sort((a, b) => a.name.localeCompare(b.name)));
     };
     const deleteProject = async (projectId: string) => {
         if (confirm('Naozaj chcete vymazať tento projekt?')) {
@@ -251,11 +259,11 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // --- Cost Center Management ---
     const addCostCenter = async (name: string) => {
         const newCenter = await fetchApi('/api/cost-centers', { method: 'POST', body: JSON.stringify({ name }) });
-        if (newCenter) setCostCenters(prev => [...prev, newCenter]);
+        if (newCenter) setCostCenters(prev => [...prev, newCenter].sort((a, b) => a.name.localeCompare(b.name)));
     };
     const updateCostCenter = async (id: number, name: string) => {
         const updatedCenter = await fetchApi(`/api/cost-centers/${id}`, { method: 'PUT', body: JSON.stringify({ name }) });
-        if (updatedCenter) setCostCenters(prev => prev.map(c => c.id === id ? updatedCenter : c));
+        if (updatedCenter) setCostCenters(prev => prev.map(c => c.id === id ? updatedCenter : c).sort((a, b) => a.name.localeCompare(b.name)));
     };
     const deleteCostCenter = async (id: number) => {
          if (confirm('Naozaj chcete vymazať toto stredisko?')) {
@@ -316,7 +324,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         <TimeTrackerContext.Provider value={{
             users, projects, costCenters, activeSessions, completedSessions, currentUser, isLoading, isAdmin, isManager, sessionTimers, userForStopConfirmation,
             setCurrentUser, handleManualLogin, processQRCode, addUser, updateUser, deleteUser, addProject, updateProject, deleteProject, toggleProjectStatus,
-            stopSessionForUser, setUserForStopConfirmation, projectEvaluation, exportToExcel,
+            stopSessionForUser, setUserForStopConfirmation, startSession, projectEvaluation, exportToExcel,
             addCostCenter, updateCostCenter, deleteCostCenter
         }}>
             {children}

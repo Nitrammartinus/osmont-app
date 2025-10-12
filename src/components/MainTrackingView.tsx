@@ -74,8 +74,9 @@ const Login: React.FC = () => {
 
 
 const StartTracking: React.FC = () => {
-    const { processQRCode } = useTimeTracker();
+    const { currentUser, projects, processQRCode, startSession } = useTimeTracker();
     const [isScanning, setIsScanning] = useState(false);
+    const [selectedProjectId, setSelectedProjectId] = useState<string>('');
 
     const handleScanSuccess = (decodedText: string) => {
         setIsScanning(false);
@@ -89,12 +90,22 @@ const StartTracking: React.FC = () => {
         }
     };
 
+    const handleManualStart = async () => {
+        if (!selectedProjectId || !currentUser) {
+            alert('Prosím, vyberte projekt.');
+            return;
+        }
+        await startSession(currentUser.id, selectedProjectId);
+    };
+
+    const openProjects = useMemo(() => projects.filter(p => !p.closed), [projects]);
+
     return (
         <>
             {isScanning && <QRCodeScanner onScanSuccess={handleScanSuccess} onClose={() => setIsScanning(false)} />}
-            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6 text-center">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Spustiť Novú Smenu</h2>
-                <div className="bg-gray-100 rounded-xl p-6">
+            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4 text-center">Spustiť Novú Smenu</h2>
+                <div className="bg-gray-100 rounded-xl p-6 text-center">
                     <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-600 mb-4">Naskenujte QR kód projektu pre začatie sledovania.</p>
                     <button onClick={() => setIsScanning(true)} className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 flex items-center justify-center mx-auto">
@@ -102,6 +113,33 @@ const StartTracking: React.FC = () => {
                         Skenovať QR Projektu
                     </button>
                 </div>
+
+                {currentUser?.can_select_project_manually && openProjects.length > 0 && (
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                        <h3 className="text-md font-semibold text-gray-700 text-center mb-4">Alebo vybrať projekt manuálne</h3>
+                        <div className="max-w-sm mx-auto space-y-4">
+                             <select
+                                value={selectedProjectId}
+                                onChange={(e) => setSelectedProjectId(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">-- Vyberte projekt --</option>
+                                {openProjects.map((project) => (
+                                    <option key={project.id} value={project.id}>
+                                        {project.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={handleManualStart}
+                                disabled={!selectedProjectId}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 disabled:bg-gray-400 disabled:transform-none disabled:cursor-not-allowed"
+                            >
+                                Spustiť Smenu Manuálne
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );
@@ -112,12 +150,11 @@ const ActiveSessions: React.FC = () => {
     const [selectedCostCenter, setSelectedCostCenter] = useState<number | 'all'>('all');
 
     const filteredSessions = useMemo(() => {
-        if (!isAdmin && !isManager) return activeSessions; // employees see all
         if (selectedCostCenter === 'all') {
             return activeSessions;
         }
         return activeSessions.filter(session => session.costCenterId === selectedCostCenter);
-    }, [activeSessions, selectedCostCenter, isAdmin, isManager]);
+    }, [activeSessions, selectedCostCenter]);
     
     return (
         <div className="bg-white rounded-2xl shadow-xl p-6">
@@ -125,7 +162,7 @@ const ActiveSessions: React.FC = () => {
                 <h2 className="text-lg font-semibold text-gray-800">Aktívne Smeny</h2>
                 <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">{filteredSessions.length} aktívnych</div>
             </div>
-             {(isAdmin || isManager) && (
+            {costCenters.length > 0 && (
                 <div className="mb-4">
                     <label htmlFor="cost-center-filter" className="block text-sm font-medium text-gray-700">Filtrovať podľa strediska:</label>
                     <select
@@ -145,18 +182,18 @@ const ActiveSessions: React.FC = () => {
             {filteredSessions.length > 0 ? (
                 <div className="space-y-4">
                     {filteredSessions.map(session => {
-                        const isCurrentUserSession = currentUser?.id === session.userId;
                         const project = projects.find(p => p.id === session.projectId);
                         const costCenter = costCenters.find(c => c.id === session.costCenterId);
                         const userOfSession = users.find(u => u.id === session.userId);
 
-                        const canStop = currentUser && userOfSession && (
-                            isAdmin || 
+                        const isOwnSession = currentUser?.id === session.userId;
+                        const canManageSession = currentUser && userOfSession && !isOwnSession && (
+                            isAdmin ||
                             (isManager && currentUser.costCenters.includes(session.costCenterId))
                         );
 
                         return (
-                            <div key={session.id} className={`rounded-lg p-4 border-l-4 ${isCurrentUserSession ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'}`}>
+                            <div key={session.id} className={`rounded-lg p-4 border-l-4 ${isOwnSession ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'}`}>
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <div className="flex items-center mb-1">
@@ -174,8 +211,8 @@ const ActiveSessions: React.FC = () => {
                                     </div>
                                     <div className="text-right ml-4 flex flex-col items-end">
                                         <p className="font-mono text-xl font-bold text-blue-600">{sessionTimers[session.id] ? formatTime(sessionTimers[session.id]) : '00:00:00'}</p>
-                                        {isCurrentUserSession && <div className="mt-2 text-blue-800 text-xs font-medium py-1 px-2 rounded-full bg-blue-100">Vaša Smena</div>}
-                                        {canStop && (
+                                        {isOwnSession && <div className="mt-2 text-blue-800 text-xs font-medium py-1 px-2 rounded-full bg-blue-100">Vaša Smena</div>}
+                                        {(isOwnSession || canManageSession) && userOfSession && (
                                             <button
                                                 onClick={() => setUserForStopConfirmation(userOfSession)}
                                                 className="mt-2 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold py-1 px-3 rounded-full flex items-center transition-colors"
