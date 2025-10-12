@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTimeTracker, formatTime } from '../hooks/useTimeTracker';
-import { User, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle, Play } from './Icons';
+import { User, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
 import QRCodeScanner from './QRCodeScanner';
 
 const Login: React.FC = () => {
@@ -74,9 +74,8 @@ const Login: React.FC = () => {
 
 
 const StartTracking: React.FC = () => {
-    const { processQRCode, currentUser, projects, startSession } = useTimeTracker();
+    const { processQRCode } = useTimeTracker();
     const [isScanning, setIsScanning] = useState(false);
-    const [selectedProjectId, setSelectedProjectId] = useState<string>('');
 
     const handleScanSuccess = (decodedText: string) => {
         setIsScanning(false);
@@ -90,59 +89,12 @@ const StartTracking: React.FC = () => {
         }
     };
 
-    const handleManualStart = () => {
-        if (!selectedProjectId || !currentUser) return;
-        startSession(currentUser.id, selectedProjectId);
-    };
-
-    const availableProjects = useMemo(() => {
-        if (!currentUser?.costCenters) return [];
-        return projects.filter(p => 
-            !p.closed && 
-            currentUser.costCenters.includes(p.cost_center_id)
-        );
-    }, [projects, currentUser]);
-
     return (
         <>
             {isScanning && <QRCodeScanner onScanSuccess={handleScanSuccess} onClose={() => setIsScanning(false)} />}
-            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4 text-center">Spustiť Novú Smenu</h2>
-
-                {currentUser?.can_select_project_manually && availableProjects.length > 0 && (
-                    <div className="mb-6">
-                        <div className="bg-gray-100 rounded-xl p-6">
-                            <h3 className="text-md font-semibold text-gray-700 mb-3 text-center">Vybrať Projekt Manuálne</h3>
-                            <div className="max-w-sm mx-auto space-y-4">
-                                <select
-                                    value={selectedProjectId}
-                                    onChange={(e) => setSelectedProjectId(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
-                                >
-                                    <option value="" disabled>-- Vyberte projekt --</option>
-                                    {availableProjects.map(project => (
-                                        <option key={project.id} value={project.id}>{project.name}</option>
-                                    ))}
-                                </select>
-                                <button
-                                    onClick={handleManualStart}
-                                    disabled={!selectedProjectId}
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center mx-auto"
-                                >
-                                    <Play className="w-5 h-5 mr-2" />
-                                    Spustiť Smenu
-                                </button>
-                            </div>
-                        </div>
-                        <div className="relative flex py-5 items-center max-w-sm mx-auto">
-                            <div className="flex-grow border-t border-gray-300"></div>
-                            <span className="flex-shrink mx-4 text-gray-500 text-sm">ALEBO</span>
-                            <div className="flex-grow border-t border-gray-300"></div>
-                        </div>
-                    </div>
-                )}
-                
-                <div className="bg-gray-100 rounded-xl p-6 text-center">
+            <div className="bg-white rounded-2xl shadow-xl p-6 mb-6 text-center">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Spustiť Novú Smenu</h2>
+                <div className="bg-gray-100 rounded-xl p-6">
                     <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-600 mb-4">Naskenujte QR kód projektu pre začatie sledovania.</p>
                     <button onClick={() => setIsScanning(true)} className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-transform transform hover:scale-105 duration-200 flex items-center justify-center mx-auto">
@@ -156,7 +108,7 @@ const StartTracking: React.FC = () => {
 };
 
 const ActiveSessions: React.FC = () => {
-    const { activeSessions, sessionTimers, currentUser, projects, setUserForStopConfirmation, users } = useTimeTracker();
+    const { activeSessions, sessionTimers, currentUser, projects, setUserForStopConfirmation } = useTimeTracker();
     
     return (
         <div className="bg-white rounded-2xl shadow-xl p-6">
@@ -170,13 +122,6 @@ const ActiveSessions: React.FC = () => {
                     {activeSessions.map(session => {
                         const isCurrentUserSession = currentUser?.id === session.userId;
                         const project = projects.find(p => p.id === session.projectId);
-                        
-                        const sessionUser = users.find(u => u.id === session.userId);
-
-                        const canStopSession = currentUser && sessionUser && (
-                            (currentUser.role === 'admin' || currentUser.role === 'manager') || isCurrentUserSession
-                        );
-
                         return (
                             <div key={session.id} className={`rounded-lg p-4 border-l-4 ${isCurrentUserSession ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'}`}>
                                 <div className="flex justify-between items-start">
@@ -191,9 +136,9 @@ const ActiveSessions: React.FC = () => {
                                     <div className="text-right ml-4 flex flex-col items-end">
                                         <p className="font-mono text-xl font-bold text-blue-600">{sessionTimers[session.id] ? formatTime(sessionTimers[session.id]) : '00:00:00'}</p>
                                         {isCurrentUserSession && <div className="mt-2 text-blue-800 text-xs font-medium py-1 px-2 rounded-full bg-blue-100">Vaša Smena</div>}
-                                        {canStopSession && (
+                                        {isCurrentUserSession && currentUser && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
                                             <button
-                                                onClick={() => setUserForStopConfirmation(sessionUser)}
+                                                onClick={() => setUserForStopConfirmation(currentUser)}
                                                 className="mt-2 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold py-1 px-3 rounded-full flex items-center transition-colors"
                                             >
                                                 <StopCircle className="w-4 h-4 mr-1" />
@@ -217,44 +162,30 @@ const ActiveSessions: React.FC = () => {
 };
 
 const MainTrackingView: React.FC = () => {
-    const { currentUser, setCurrentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
+    const { currentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
     const userHasActiveSession = activeSessions.some(s => s.userId === currentUser?.id);
-
-    useEffect(() => {
-        if (currentUser && currentUser.role === 'employee' && userHasActiveSession && !userForStopConfirmation) {
-            setUserForStopConfirmation(currentUser);
-        }
-    }, [currentUser, userHasActiveSession, setUserForStopConfirmation, userForStopConfirmation]);
 
     const sessionToStop = useMemo(() => {
         if (!userForStopConfirmation) return null;
         return activeSessions.find(s => s.userId === userForStopConfirmation.id);
     }, [userForStopConfirmation, activeSessions]);
 
-    const handleStopSession = async () => {
+    const handleStopSession = () => {
         if (userForStopConfirmation) {
-            await stopSessionForUser(userForStopConfirmation);
-            if (userForStopConfirmation.role === 'employee') {
-                setCurrentUser(null);
-            }
+            stopSessionForUser(userForStopConfirmation);
         }
         setUserForStopConfirmation(null);
     };
 
     const handleCancelStop = () => {
         setUserForStopConfirmation(null);
-        if (currentUser && currentUser.role === 'employee') {
-            setCurrentUser(null);
-        }
     };
 
     return (
         <div className="max-w-4xl mx-auto">
             {!currentUser && !userForStopConfirmation && <Login />}
             {currentUser && !userHasActiveSession && <StartTracking />}
-            
-            {/* Display active sessions if user is admin/manager, or if it's an employee without an active session but needs to see others */}
-            {(currentUser?.role !== 'employee' || !userHasActiveSession) && <ActiveSessions />}
+            <ActiveSessions />
 
             {sessionToStop && userForStopConfirmation && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
