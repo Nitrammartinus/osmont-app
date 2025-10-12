@@ -220,11 +220,11 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // --- User Management ---
     const addUser = async (userData: Partial<User>) => {
         const newUser = await fetchApi('/api/users', { method: 'POST', body: JSON.stringify(userData) });
-        if(newUser) setUsers(prev => [...prev, newUser]);
+        if(newUser) setUsers(prev => [...prev, newUser].sort((a, b) => a.name.localeCompare(b.name)));
     };
     const updateUser = async (user: User) => {
         const updatedUser = await fetchApi(`/api/users/${user.id}`, { method: 'PUT', body: JSON.stringify(user) });
-        if(updatedUser) setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
+        if(updatedUser) setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u).sort((a, b) => a.name.localeCompare(b.name)));
     };
     const deleteUser = async (userId: string) => {
         if (confirm('Naozaj chcete vymazať tohto používateľa?')) {
@@ -236,11 +236,11 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // --- Project Management ---
     const addProject = async (projectData: Partial<Project>) => {
         const newProject = await fetchApi('/api/projects', { method: 'POST', body: JSON.stringify(projectData) });
-        if(newProject) setProjects(prev => [...prev, newProject]);
+        if(newProject) setProjects(prev => [...prev, newProject].sort((a, b) => a.name.localeCompare(b.name)));
     };
     const updateProject = async (project: Project) => {
         const updatedProject = await fetchApi(`/api/projects/${project.id}`, { method: 'PUT', body: JSON.stringify(project) });
-        if(updatedProject) setProjects(prev => prev.map(p => p.id === project.id ? updatedProject : p));
+        if(updatedProject) setProjects(prev => prev.map(p => p.id === project.id ? updatedProject : p).sort((a, b) => a.name.localeCompare(b.name)));
     };
     const deleteProject = async (projectId: string) => {
         if (confirm('Naozaj chcete vymazať tento projekt?')) {
@@ -258,11 +258,11 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // --- Cost Center Management ---
     const addCostCenter = async (name: string) => {
         const newCenter = await fetchApi('/api/cost-centers', { method: 'POST', body: JSON.stringify({ name }) });
-        if (newCenter) setCostCenters(prev => [...prev, newCenter]);
+        if (newCenter) setCostCenters(prev => [...prev, newCenter].sort((a, b) => a.name.localeCompare(b.name)));
     };
     const updateCostCenter = async (id: number, name: string) => {
         const updatedCenter = await fetchApi(`/api/cost-centers/${id}`, { method: 'PUT', body: JSON.stringify({ name }) });
-        if (updatedCenter) setCostCenters(prev => prev.map(c => c.id === id ? updatedCenter : c));
+        if (updatedCenter) setCostCenters(prev => prev.map(c => c.id === id ? updatedCenter : c).sort((a, b) => a.name.localeCompare(b.name)));
     };
     const deleteCostCenter = async (id: number) => {
          if (confirm('Naozaj chcete vymazať toto stredisko?')) {
