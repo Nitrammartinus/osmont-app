@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useTimeTracker, formatTime } from '../hooks/useTimeTracker';
-import { User, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle } from './Icons';
+import { User, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle, Building2 } from './Icons';
 import QRCodeScanner from './QRCodeScanner';
 
 const Login: React.FC = () => {
@@ -108,20 +108,53 @@ const StartTracking: React.FC = () => {
 };
 
 const ActiveSessions: React.FC = () => {
-    const { activeSessions, sessionTimers, currentUser, projects, setUserForStopConfirmation } = useTimeTracker();
+    const { activeSessions, sessionTimers, currentUser, projects, costCenters, users, setUserForStopConfirmation, isAdmin, isManager } = useTimeTracker();
+    const [selectedCostCenter, setSelectedCostCenter] = useState<number | 'all'>('all');
+
+    const filteredSessions = useMemo(() => {
+        if (!isAdmin && !isManager) return activeSessions; // employees see all
+        if (selectedCostCenter === 'all') {
+            return activeSessions;
+        }
+        return activeSessions.filter(session => session.costCenterId === selectedCostCenter);
+    }, [activeSessions, selectedCostCenter, isAdmin, isManager]);
     
     return (
         <div className="bg-white rounded-2xl shadow-xl p-6">
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-800">Aktívne Smeny</h2>
-                <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">{activeSessions.length} aktívnych</div>
+                <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">{filteredSessions.length} aktívnych</div>
             </div>
+             {(isAdmin || isManager) && (
+                <div className="mb-4">
+                    <label htmlFor="cost-center-filter" className="block text-sm font-medium text-gray-700">Filtrovať podľa strediska:</label>
+                    <select
+                        id="cost-center-filter"
+                        value={selectedCostCenter}
+                        onChange={e => setSelectedCostCenter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                    >
+                        <option value="all">Všetky strediská</option>
+                        {costCenters.map(center => (
+                            <option key={center.id} value={center.id}>{center.name}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
 
-            {activeSessions.length > 0 ? (
+            {filteredSessions.length > 0 ? (
                 <div className="space-y-4">
-                    {activeSessions.map(session => {
+                    {filteredSessions.map(session => {
                         const isCurrentUserSession = currentUser?.id === session.userId;
                         const project = projects.find(p => p.id === session.projectId);
+                        const costCenter = costCenters.find(c => c.id === session.costCenterId);
+                        const userOfSession = users.find(u => u.id === session.userId);
+
+                        const canStop = currentUser && userOfSession && (
+                            isAdmin || 
+                            (isManager && currentUser.costCenters.includes(session.costCenterId))
+                        );
+
                         return (
                             <div key={session.id} className={`rounded-lg p-4 border-l-4 ${isCurrentUserSession ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'}`}>
                                 <div className="flex justify-between items-start">
@@ -131,14 +164,20 @@ const ActiveSessions: React.FC = () => {
                                             <p className="font-medium text-gray-800">{session.userName}</p>
                                         </div>
                                         <p className="text-sm text-gray-700 font-medium">{session.projectName}</p>
-                                         {project?.closed && <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full mt-1 inline-block">Projekt Uzatvorený</span>}
+                                        {costCenter && (
+                                            <div className="flex items-center text-xs text-gray-500 mt-1">
+                                                <Building2 className="w-3 h-3 mr-1.5" />
+                                                <span>{costCenter.name}</span>
+                                            </div>
+                                        )}
+                                        {project?.closed && <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full mt-1 inline-block">Projekt Uzatvorený</span>}
                                     </div>
                                     <div className="text-right ml-4 flex flex-col items-end">
                                         <p className="font-mono text-xl font-bold text-blue-600">{sessionTimers[session.id] ? formatTime(sessionTimers[session.id]) : '00:00:00'}</p>
                                         {isCurrentUserSession && <div className="mt-2 text-blue-800 text-xs font-medium py-1 px-2 rounded-full bg-blue-100">Vaša Smena</div>}
-                                        {isCurrentUserSession && currentUser && (currentUser.role === 'admin' || currentUser.role === 'manager') && (
+                                        {canStop && (
                                             <button
-                                                onClick={() => setUserForStopConfirmation(currentUser)}
+                                                onClick={() => setUserForStopConfirmation(userOfSession)}
                                                 className="mt-2 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold py-1 px-3 rounded-full flex items-center transition-colors"
                                             >
                                                 <StopCircle className="w-4 h-4 mr-1" />
@@ -154,7 +193,7 @@ const ActiveSessions: React.FC = () => {
             ) : (
                 <div className="text-center py-8">
                     <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600">Žiadne aktívne smeny.</p>
+                    <p className="text-gray-600">{selectedCostCenter === 'all' ? 'Žiadne aktívne smeny.' : 'Žiadne aktívne smeny v tomto stredisku.'}</p>
                 </div>
             )}
         </div>

@@ -67,23 +67,44 @@ const UserManagement: React.FC = () => {
                     Späť na Zoznam Používateľov
                 </button>
                 <div className="text-center">
+                    <h2 className="text-xl font-bold text-gray-800">QR Kód Používateľa</h2>
+                    <p className="text-gray-600 mb-4">{showQRCodeData.user.name}</p>
                     <div className="bg-gray-100 p-4 inline-block rounded-lg mb-4">
                         <QRCodeCanvas id={qrId} value={showQRCodeData.content} size={200} />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-800">QR Kód Používateľa</h2>
-                    <p className="text-gray-600 mb-4">{showQRCodeData.user.name}</p>
                     <button
                         onClick={() => {
                             const canvas = document.getElementById(qrId) as HTMLCanvasElement;
-                            if (canvas) {
-                                const pngUrl = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
-                                let downloadLink = document.createElement("a");
-                                downloadLink.href = pngUrl;
-                                downloadLink.download = `qr_kod_${showQRCodeData.user.username}.png`;
-                                document.body.appendChild(downloadLink);
-                                downloadLink.click();
-                                document.body.removeChild(downloadLink);
-                            }
+                            if (!canvas) return;
+
+                            const PADDING = 20;
+                            const FONT_SIZE = 16;
+                            const TEXT_MARGIN_TOP = 10;
+                            
+                            const compositeCanvas = document.createElement('canvas');
+                            const ctx = compositeCanvas.getContext('2d');
+                            if (!ctx) return;
+
+                            compositeCanvas.width = canvas.width + PADDING * 2;
+                            compositeCanvas.height = canvas.height + PADDING * 2 + FONT_SIZE + TEXT_MARGIN_TOP;
+                            
+                            ctx.fillStyle = 'white';
+                            ctx.fillRect(0, 0, compositeCanvas.width, compositeCanvas.height);
+                            
+                            ctx.drawImage(canvas, PADDING, PADDING);
+                            
+                            ctx.fillStyle = 'black';
+                            ctx.font = `bold ${FONT_SIZE}px Arial`;
+                            ctx.textAlign = 'center';
+                            ctx.fillText(showQRCodeData.user.name, compositeCanvas.width / 2, canvas.height + PADDING + TEXT_MARGIN_TOP + FONT_SIZE / 2);
+
+                            const pngUrl = compositeCanvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+                            let downloadLink = document.createElement("a");
+                            downloadLink.href = pngUrl;
+                            downloadLink.download = `qr_kod_${showQRCodeData.user.username}.png`;
+                            document.body.appendChild(downloadLink);
+                            downloadLink.click();
+                            document.body.removeChild(downloadLink);
                         }}
                         className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center">
                         <Download className="w-4 h-4 mr-2" /> Stiahnuť PNG
