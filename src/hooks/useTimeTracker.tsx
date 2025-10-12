@@ -26,6 +26,9 @@ interface TimeTrackerContextType {
     handleManualLogin: (username: string, pass: string) => Promise<boolean>;
     processQRCode: (qrCode: string) => { success: boolean; message: string };
     
+    // Fix: Add startSession to the context type so it can be used in components.
+    startSession: (userId: string, projectId: string) => Promise<void>;
+
     addUser: (userData: Partial<User>) => Promise<void>;
     updateUser: (user: User) => Promise<void>;
     deleteUser: (userId: string) => Promise<void>;
@@ -96,9 +99,9 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         ]);
 
         if (initialData) {
-            setUsers((initialData.users || []).sort((a, b) => a.name.localeCompare(b.name)));
-            setProjects((initialData.projects || []).sort((a, b) => a.name.localeCompare(b.name)));
-            setCostCenters((initialData.costCenters || []).sort((a, b) => a.name.localeCompare(b.name)));
+            setUsers((initialData.users || []).sort((a: User, b: User) => a.name.localeCompare(b.name)));
+            setProjects((initialData.projects || []).sort((a: Project, b: Project) => a.name.localeCompare(b.name)));
+            setCostCenters((initialData.costCenters || []).sort((a: CostCenter, b: CostCenter) => a.name.localeCompare(b.name)));
             setCompletedSessions(initialData.completedSessions || []);
         }
         if (activeSessionsData) {
@@ -324,7 +327,9 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             users, projects, costCenters, activeSessions, completedSessions, currentUser, isLoading, isAdmin, isManager, sessionTimers, userForStopConfirmation,
             setCurrentUser, handleManualLogin, processQRCode, addUser, updateUser, deleteUser, addProject, updateProject, deleteProject, toggleProjectStatus,
             stopSessionForUser, setUserForStopConfirmation, projectEvaluation, exportToExcel,
-            addCostCenter, updateCostCenter, deleteCostCenter
+            addCostCenter, updateCostCenter, deleteCostCenter,
+            // Fix: Add startSession to the provider value.
+            startSession,
         }}>
             {children}
         </TimeTrackerContext.Provider>
