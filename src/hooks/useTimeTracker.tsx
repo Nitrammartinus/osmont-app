@@ -26,9 +26,6 @@ interface TimeTrackerContextType {
     handleManualLogin: (username: string, pass: string) => Promise<boolean>;
     processQRCode: (qrCode: string) => { success: boolean; message: string };
     
-    // Fix: Add startSession to the context type so it can be used in components.
-    startSession: (userId: string, projectId: string) => Promise<void>;
-
     addUser: (userData: Partial<User>) => Promise<void>;
     updateUser: (user: User) => Promise<void>;
     deleteUser: (userId: string) => Promise<void>;
@@ -72,15 +69,8 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 ...options,
             });
             if (!response.ok) {
-                const contentType = response.headers.get("content-type");
-                if (contentType && contentType.indexOf("application/json") !== -1) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                } else {
-                    const errorText = await response.text();
-                    console.error("Server returned non-JSON error:", errorText);
-                    throw new Error(`Chyba servera: ${response.status} ${response.statusText}`);
-                }
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
             }
             if (response.status === 204) return null;
             return await response.json();
@@ -99,9 +89,9 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         ]);
 
         if (initialData) {
-            setUsers((initialData.users || []).sort((a: User, b: User) => a.name.localeCompare(b.name)));
-            setProjects((initialData.projects || []).sort((a: Project, b: Project) => a.name.localeCompare(b.name)));
-            setCostCenters((initialData.costCenters || []).sort((a: CostCenter, b: CostCenter) => a.name.localeCompare(b.name)));
+            setUsers(initialData.users || []);
+            setProjects(initialData.projects || []);
+            setCostCenters(initialData.costCenters || []);
             setCompletedSessions(initialData.completedSessions || []);
         }
         if (activeSessionsData) {
@@ -223,11 +213,11 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // --- User Management ---
     const addUser = async (userData: Partial<User>) => {
         const newUser = await fetchApi('/api/users', { method: 'POST', body: JSON.stringify(userData) });
-        if(newUser) setUsers(prev => [...prev, newUser].sort((a, b) => a.name.localeCompare(b.name)));
+        if(newUser) setUsers(prev => [...prev, newUser]);
     };
     const updateUser = async (user: User) => {
         const updatedUser = await fetchApi(`/api/users/${user.id}`, { method: 'PUT', body: JSON.stringify(user) });
-        if(updatedUser) setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u).sort((a, b) => a.name.localeCompare(b.name)));
+        if(updatedUser) setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
     };
     const deleteUser = async (userId: string) => {
         if (confirm('Naozaj chcete vymazať tohto používateľa?')) {
@@ -239,11 +229,11 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // --- Project Management ---
     const addProject = async (projectData: Partial<Project>) => {
         const newProject = await fetchApi('/api/projects', { method: 'POST', body: JSON.stringify(projectData) });
-        if(newProject) setProjects(prev => [...prev, newProject].sort((a, b) => a.name.localeCompare(b.name)));
+        if(newProject) setProjects(prev => [...prev, newProject]);
     };
     const updateProject = async (project: Project) => {
         const updatedProject = await fetchApi(`/api/projects/${project.id}`, { method: 'PUT', body: JSON.stringify(project) });
-        if(updatedProject) setProjects(prev => prev.map(p => p.id === project.id ? updatedProject : p).sort((a, b) => a.name.localeCompare(b.name)));
+        if(updatedProject) setProjects(prev => prev.map(p => p.id === project.id ? updatedProject : p));
     };
     const deleteProject = async (projectId: string) => {
         if (confirm('Naozaj chcete vymazať tento projekt?')) {
@@ -261,11 +251,11 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // --- Cost Center Management ---
     const addCostCenter = async (name: string) => {
         const newCenter = await fetchApi('/api/cost-centers', { method: 'POST', body: JSON.stringify({ name }) });
-        if (newCenter) setCostCenters(prev => [...prev, newCenter].sort((a, b) => a.name.localeCompare(b.name)));
+        if (newCenter) setCostCenters(prev => [...prev, newCenter]);
     };
     const updateCostCenter = async (id: number, name: string) => {
         const updatedCenter = await fetchApi(`/api/cost-centers/${id}`, { method: 'PUT', body: JSON.stringify({ name }) });
-        if (updatedCenter) setCostCenters(prev => prev.map(c => c.id === id ? updatedCenter : c).sort((a, b) => a.name.localeCompare(b.name)));
+        if (updatedCenter) setCostCenters(prev => prev.map(c => c.id === id ? updatedCenter : c));
     };
     const deleteCostCenter = async (id: number) => {
          if (confirm('Naozaj chcete vymazať toto stredisko?')) {
@@ -327,9 +317,7 @@ export const TimeTrackerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             users, projects, costCenters, activeSessions, completedSessions, currentUser, isLoading, isAdmin, isManager, sessionTimers, userForStopConfirmation,
             setCurrentUser, handleManualLogin, processQRCode, addUser, updateUser, deleteUser, addProject, updateProject, deleteProject, toggleProjectStatus,
             stopSessionForUser, setUserForStopConfirmation, projectEvaluation, exportToExcel,
-            addCostCenter, updateCostCenter, deleteCostCenter,
-            // Fix: Add startSession to the provider value.
-            startSession,
+            addCostCenter, updateCostCenter, deleteCostCenter
         }}>
             {children}
         </TimeTrackerContext.Provider>
