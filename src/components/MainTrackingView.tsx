@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTimeTracker, formatTime } from '../hooks/useTimeTracker';
 import { User, QrCode, Eye, EyeOff, BarChart3, StopCircle, AlertCircle, Play } from './Icons';
 import QRCodeScanner from './QRCodeScanner';
@@ -95,7 +95,13 @@ const StartTracking: React.FC = () => {
         startSession(currentUser.id, selectedProjectId);
     };
 
-    const availableProjects = projects.filter(p => !p.closed);
+    const availableProjects = useMemo(() => {
+        if (!currentUser?.costCenters) return [];
+        return projects.filter(p => 
+            !p.closed && 
+            currentUser.costCenters.includes(p.cost_center_id)
+        );
+    }, [projects, currentUser]);
 
     return (
         <>
@@ -211,30 +217,44 @@ const ActiveSessions: React.FC = () => {
 };
 
 const MainTrackingView: React.FC = () => {
-    const { currentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
+    const { currentUser, setCurrentUser, activeSessions, userForStopConfirmation, setUserForStopConfirmation, stopSessionForUser, sessionTimers } = useTimeTracker();
     const userHasActiveSession = activeSessions.some(s => s.userId === currentUser?.id);
+
+    useEffect(() => {
+        if (currentUser && currentUser.role === 'employee' && userHasActiveSession && !userForStopConfirmation) {
+            setUserForStopConfirmation(currentUser);
+        }
+    }, [currentUser, userHasActiveSession, setUserForStopConfirmation, userForStopConfirmation]);
 
     const sessionToStop = useMemo(() => {
         if (!userForStopConfirmation) return null;
         return activeSessions.find(s => s.userId === userForStopConfirmation.id);
     }, [userForStopConfirmation, activeSessions]);
 
-    const handleStopSession = () => {
+    const handleStopSession = async () => {
         if (userForStopConfirmation) {
-            stopSessionForUser(userForStopConfirmation);
+            await stopSessionForUser(userForStopConfirmation);
+            if (userForStopConfirmation.role === 'employee') {
+                setCurrentUser(null);
+            }
         }
         setUserForStopConfirmation(null);
     };
 
     const handleCancelStop = () => {
         setUserForStopConfirmation(null);
+        if (currentUser && currentUser.role === 'employee') {
+            setCurrentUser(null);
+        }
     };
 
     return (
         <div className="max-w-4xl mx-auto">
             {!currentUser && !userForStopConfirmation && <Login />}
             {currentUser && !userHasActiveSession && <StartTracking />}
-            <ActiveSessions />
+            
+            {/* Display active sessions if user is admin/manager, or if it's an employee without an active session but needs to see others */}
+            {(currentUser?.role !== 'employee' || !userHasActiveSession) && <ActiveSessions />}
 
             {sessionToStop && userForStopConfirmation && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
